@@ -2,131 +2,90 @@
 import React, { useState } from "react";
 import { useLanguage } from "./Languagecontext";
 import { Routes, Route, useNavigate } from "react-router-dom";
-import Login from "./views/Login";
+import FarmerDashboard from "./views/FarmerDashboard";
+import WorkerDashboard from "./views/WorkerDashboard";
 import "./App.css";
+
 
 
 // Welcome Screen
 function WelcomeScreen() {
   const { language, changeLanguage, t } = useLanguage();
   const navigate = useNavigate();
-
-  const [selectedLanguage, setSelectedLanguage] = useState(
-    language || ""
-  );
-
-  const [started, setStarted] = useState(Boolean(language));
-
-  const handleContinue = () => {
-    if (!selectedLanguage) {
-      alert("Please select a language / దయచేసి భాషను ఎంచుకోండి");
-      return;
-    }
-
-    changeLanguage(selectedLanguage);
-    setStarted(true);
-  };
-
-  const handleLanguageChange = (newLanguage) => {
-    setSelectedLanguage(newLanguage);
-    changeLanguage(newLanguage);
-  };
+  const workTypes = [
+    {
+      title: t.workSeeding,
+      image: "https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&w=640&q=80",
+      alt: t.workSeedingAlt,
+    },
+    {
+      title: t.workHarvesting,
+      image: "https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&w=640&q=80",
+      alt: t.workHarvestingAlt,
+    },
+    {
+      title: t.workPruning,
+      image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=640&q=80",
+      alt: t.workPruningAlt,
+    },
+    {
+      title: t.workTractor,
+      image: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=640&q=80",
+      alt: t.workTractorAlt,
+    },
+  ];
 
   return (
-    <div className="app-container">
-      {!started ? (
-        <div className="language-card">
-          <div className="app-logo">🌾</div>
+    <main className="landing-page">
+      <header className="site-nav">
+        <button className="brand" onClick={() => navigate("/")} aria-label={t.appName}>
+          <span className="brand-mark" aria-hidden="true">H</span>
+          <span>{t.appName}</span>
+        </button>
 
-          <h1>Harvest Hub</h1>
-
-          <p className="tagline">
-            Connecting Farmers and Workers
-          </p>
-
-          <h2>Choose Your Language</h2>
-          <h3>మీ భాషను ఎంచుకోండి</h3>
-
-          <div className="language-options">
-            <button
-              className={
-                selectedLanguage === "en"
-                  ? "language-btn selected"
-                  : "language-btn"
-              }
-              onClick={() => setSelectedLanguage("en")}
-            >
-              🇬🇧 English
-            </button>
-
-            <button
-              className={
-                selectedLanguage === "te"
-                  ? "language-btn selected"
-                  : "language-btn"
-              }
-              onClick={() => setSelectedLanguage("te")}
-            >
-              🇮🇳 తెలుగు
-            </button>
-          </div>
-
-          <button
-            className="continue-btn"
-            onClick={handleContinue}
+        <nav className="nav-actions" aria-label={t.loginOptions}>
+          <select
+            value={language || "en"}
+            onChange={(event) => changeLanguage(event.target.value)}
+            aria-label={t.language}
           >
-            Continue / కొనసాగించండి →
+            <option value="en">English</option>
+            <option value="te">తెలుగు</option>
+          </select>
+          <button className="nav-login farmer-login" onClick={() => navigate("/farmer-login")}>
+            {t.farmerLogin}
           </button>
+          <button className="nav-login worker-login" onClick={() => navigate("/worker-login")}>
+            {t.workerLogin}
+          </button>
+        </nav>
+      </header>
+
+      <section className="landing-hero">
+        <div className="hero-copy">
+          <p className="hero-kicker">{t.tagline}</p>
+          <h1>{t.appName}</h1>
+          <p className="hero-description">{t.description}</p>
+          <p className="hero-note">{t.selectRole}</p>
         </div>
-      ) : (
-        <div className="welcome-card">
-          <div className="top-bar">
-            <h2>{t.appName}</h2>
+        <span className="hero-location">{t.fieldWork}</span>
+      </section>
 
-            <select
-              value={language}
-              onChange={(e) =>
-                handleLanguageChange(e.target.value)
-              }
-              aria-label="Change language"
-            >
-              <option value="en">English</option>
-              <option value="te">తెలుగు</option>
-            </select>
-          </div>
-
-          <div className="welcome-content">
-            <div className="app-logo">🌾</div>
-
-            <h1>{t.welcome}</h1>
-
-            <p>{t.description}</p>
-
-            <h3>{t.selectRole}</h3>
-
-            <div className="role-options">
-              <button
-                className="role-btn"
-                onClick={() => navigate("/farmer-login")}
-              >
-                👨‍🌾 {t.farmer}
-              </button>
-
-              <button
-                className="role-btn"
-                onClick={() => navigate("/worker-login")}
-              >
-                👷 {t.worker}
-              </button>
-            </div>
-
-            <p className="coming-soon">
-              {t.dashboard} — Coming Soon
-            </p>
-          </div>
+      <section className="work-section" aria-labelledby="work-heading">
+        <div className="work-heading">
+          <p className="section-kicker">{t.workKicker}</p>
+          <h2 id="work-heading">{t.workHeading}</h2>
         </div>
-      )}
-    </div>
+        <div className="work-grid">
+          {workTypes.map((work) => (
+            <article className="work-item" key={work.title}>
+              <img src={work.image} alt={work.alt} loading="lazy" />
+              <h3>{work.title}</h3>
+            </article>
+          ))}
+        </div>
+      </section>
+    </main>
   );
 }
 
@@ -142,7 +101,7 @@ const inputStyle = {
 };
 
 function FarmerLogin() {
-  const { language } = useLanguage();
+  const { language, changeLanguage } = useLanguage();
   const navigate = useNavigate();
 
   const [isRegister, setIsRegister] = useState(false);
@@ -181,12 +140,7 @@ function FarmerLogin() {
       );
       return;
     }
-
-    alert(
-      isTelugu
-        ? "ఫారమ్ విజయవంతంగా ధృవీకరించబడింది! Backend త్వరలో కనెక్ట్ చేయబడుతుంది."
-        : "Form validated successfully! Backend integration will be added soon."
-    );
+    navigate("/farmer-dashboard");
   };
 
   return (
@@ -198,15 +152,7 @@ function FarmerLogin() {
 
           <select
             value={language}
-            onChange={(e) => {
-              const newLanguage = e.target.value;
-              // Update language through the shared provider
-              window.dispatchEvent(
-                new CustomEvent("harvest-language-change", {
-                  detail: newLanguage,
-                })
-              );
-            }}
+            onChange={(e) => changeLanguage(e.target.value)}
           >
             <option value="en">English</option>
             <option value="te">తెలుగు</option>
@@ -370,7 +316,7 @@ function FarmerLogin() {
 }
 
 function WorkerLogin() {
-  const { language } = useLanguage();
+  const { language, changeLanguage } = useLanguage();
   const navigate = useNavigate();
 
   const [isRegister, setIsRegister] = useState(false);
@@ -409,12 +355,7 @@ function WorkerLogin() {
       );
       return;
     }
-
-    alert(
-      isTelugu
-        ? "ఫారమ్ విజయవంతంగా ధృవీకరించబడింది!"
-        : "Form validated successfully! Backend integration will be added soon."
-    );
+  navigate("/worker-dashboard");
   };
 
   return (
@@ -426,13 +367,7 @@ function WorkerLogin() {
 
           <select
             value={language}
-            onChange={(e) => {
-              window.dispatchEvent(
-                new CustomEvent("harvest-language-change", {
-                  detail: e.target.value,
-                })
-              );
-            }}
+            onChange={(e) => changeLanguage(e.target.value)}
           >
             <option value="en">English</option>
             <option value="te">తెలుగు</option>
@@ -580,9 +515,23 @@ function WorkerLogin() {
 function App() {
   return (
     <Routes>
+      {/* Welcome Screen */}
       <Route path="/" element={<WelcomeScreen />} />
+
+      {/* Login Pages */}
       <Route path="/farmer-login" element={<FarmerLogin />} />
       <Route path="/worker-login" element={<WorkerLogin />} />
+
+      {/* Dashboard Pages */}
+      <Route
+        path="/farmer-dashboard"
+        element={<FarmerDashboard />}
+      />
+
+      <Route
+        path="/worker-dashboard"
+        element={<WorkerDashboard />}
+      />
     </Routes>
   );
 }

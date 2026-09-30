@@ -14,6 +14,20 @@ export const translations = {
     continue: "Continue",
     farmer: "Farmer",
     worker: "Worker",
+    farmerLogin: "Farmer login",
+    workerLogin: "Worker login",
+    loginOptions: "Login options",
+    fieldWork: "Agricultural work",
+    workKicker: "FIELD WORK",
+    workHeading: "Skills for the growing season",
+    workSeeding: "Seeding",
+    workSeedingAlt: "A farmer tending young crops in a green field",
+    workHarvesting: "Harvesting",
+    workHarvestingAlt: "Golden crops ready for harvest",
+    workPruning: "Pruning",
+    workPruningAlt: "Rows of crops growing in a farm field",
+    workTractor: "Tractor driving",
+    workTractorAlt: "Tractor working across a cultivated field",
     language: "Language",
     settings: "Settings",
     dashboard: "Dashboard",
@@ -30,6 +44,20 @@ export const translations = {
     continue: "కొనసాగించండి",
     farmer: "రైతు",
     worker: "కూలీ",
+    farmerLogin: "రైతు లాగిన్",
+    workerLogin: "కార్మికుల లాగిన్",
+    loginOptions: "లాగిన్ ఎంపికలు",
+    fieldWork: "వ్యవసాయ పనులు",
+    workKicker: "వ్యవసాయ పనులు",
+    workHeading: "పంట కాలంలోని పనులు",
+    workSeeding: "విత్తనాలు వేయడం",
+    workSeedingAlt: "పచ్చని పొలంలో పంటలను చూసుకుంటున్న రైతు",
+    workHarvesting: "పంట కోత",
+    workHarvestingAlt: "కోతకు సిద్ధంగా ఉన్న బంగారు పంట",
+    workPruning: "కొమ్మల కత్తిరింపు",
+    workPruningAlt: "వ్యవసాయ పొలంలో పెరుగుతున్న పంట వరుసలు",
+    workTractor: "ట్రాక్టర్ నడపడం",
+    workTractorAlt: "సాగు చేసిన పొలంలో పనిచేస్తున్న ట్రాక్టర్",
     language: "భాష",
     settings: "సెట్టింగ్స్",
     dashboard: "డ్యాష్‌బోర్డ్",
@@ -40,7 +68,7 @@ export const translations = {
 
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem("harvest-language") || null;
+    return localStorage.getItem("harvest-language") || "en";
   });
 
   const changeLanguage = (newLanguage) => {
