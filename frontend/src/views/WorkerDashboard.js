@@ -1,11 +1,18 @@
 
 import React from "react";
+<<<<<<< HEAD
+
+function WorkerDashboard() {
+  return (
+    <div style={{ padding: "30px", fontFamily: "Arial" }}>
+=======
 import BackButton from "../components/BackButton";
 
 function WorkerDashboard() {
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
          <BackButton label="Back" />
+>>>>>>> dcfc78ae4a564c43c7ecf7aff1809c882cdce3db
       <h1>👷 Welcome to Worker Dashboard</h1>
       <p>Find agricultural jobs and connect with farmers.</p>
 
