@@ -2,6 +2,10 @@
 import requests
 
 
+# ============================================================
+# BASE URL
+# ============================================================
+
 BASE_URL = "http://127.0.0.1:5000"
 
 
@@ -37,11 +41,11 @@ wage_response = requests.post(
 )
 
 print("\n======================================")
-print("       MARKET WAGE API")
+print("          MARKET WAGE API")
 print("======================================")
 
 print("Status Code:", wage_response.status_code)
-print("Response:", wage_response.json())
+print("Response:", wage_response.text)
 
 
 # ============================================================
@@ -54,11 +58,11 @@ jobs_response = requests.post(
 )
 
 print("\n======================================")
-print("       LABOUR DEMAND API")
+print("         LABOUR DEMAND API")
 print("======================================")
 
 print("Status Code:", jobs_response.status_code)
-print("Response:", jobs_response.json())
+print("Response:", jobs_response.text)
 
 
 # ============================================================
@@ -67,13 +71,19 @@ print("Response:", jobs_response.json())
 
 worker_data = {
 
-    "experience": 5,
+    "worker_experience_years": 5,
 
-    "distance": 4.5,
+    "distance_km": 8.5,
 
-    "w_rating": 4.5,
+    "worker_historical_rating": 4.5,
 
-    "f_rating": 4.2
+    "farmer_historical_rating": 4.2,
+
+    "historical_acceptance_rate": 0.85,
+
+    "job_required_skill": "Harvesting",
+
+    "worker_primary_skills": "Harvesting, Seeding, Pruning"
 }
 
 
@@ -91,7 +101,7 @@ print("       WORKER MATCHING API")
 print("======================================")
 
 print("Status Code:", match_response.status_code)
-print("Response:", match_response.json())
+print("Response Text:", match_response.text)
 
 
 # ============================================================
@@ -101,6 +111,7 @@ print("Response:", match_response.json())
 print("\n======================================")
 print("       API TESTING COMPLETED")
 print("======================================")
+
 
 if (
     wage_response.status_code == 200
