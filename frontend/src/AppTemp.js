@@ -2,16 +2,24 @@
 import React, { useState } from "react";
 import { useLanguage } from "./Languagecontext";
 import { Routes, Route, useNavigate } from "react-router-dom";
+<<<<<<< HEAD
+=======
+import Login from "./views/Login";
+>>>>>>> dcfc78ae4a564c43c7ecf7aff1809c882cdce3db
 import FarmerDashboard from "./views/FarmerDashboard";
 import WorkerDashboard from "./views/WorkerDashboard";
 import "./App.css";
 
+<<<<<<< HEAD
 
 
 // Welcome Screen
+=======
+>>>>>>> dcfc78ae4a564c43c7ecf7aff1809c882cdce3db
 function WelcomeScreen() {
-  const { language, changeLanguage, t } = useLanguage();
+  const { language, changeLanguage } = useLanguage();
   const navigate = useNavigate();
+<<<<<<< HEAD
   const workTypes = [
     {
       title: t.workSeeding,
@@ -42,6 +50,78 @@ function WelcomeScreen() {
           <span className="brand-mark" aria-hidden="true">H</span>
           <span>{t.appName}</span>
         </button>
+=======
+
+  const [selectedLanguage, setSelectedLanguage] = useState(
+    language || ""
+  );
+
+  const [started, setStarted] = useState(Boolean(language));
+
+  const isTelugu = language === "te";
+
+  const handleContinue = () => {
+    if (!selectedLanguage) {
+      alert("Please select a language / దయచేసి భాషను ఎంచుకోండి");
+      return;
+    }
+
+    changeLanguage(selectedLanguage);
+    setStarted(true);
+  };
+
+  const services = [
+    {
+      icon: "🌱",
+      en: "Paddy Planting",
+      te: "వరి నాట్లు వేయడం",
+      enDesc: "Planting young rice seedlings in the field.",
+      teDesc: "పొలంలో వరి నారు నాటడం.",
+    },
+    {
+      icon: "🌾",
+      en: "Harvesting",
+      te: "పంట కోత",
+      enDesc: "Collecting mature crops from the field.",
+      teDesc: "పంట చేతికి వచ్చినప్పుడు కోయడం.",
+    },
+    {
+      icon: "🌿",
+      en: "Weeding",
+      te: "కలుపు తీయడం",
+      enDesc: "Removing unwanted plants from crops.",
+      teDesc: "పంటలోని కలుపు మొక్కలను తొలగించడం.",
+    },
+    {
+      icon: "💧",
+      en: "Irrigation",
+      te: "నీటి పారుదల",
+      enDesc: "Supplying water to agricultural fields.",
+      teDesc: "పంట పొలాలకు నీటిని అందించడం.",
+    },
+    {
+      icon: "🚜",
+      en: "Land Preparation",
+      te: "భూమి సిద్ధం చేయడం",
+      enDesc: "Preparing soil before cultivation.",
+      teDesc: "సాగుకు ముందు భూమిని సిద్ధం చేయడం.",
+    },
+    {
+      icon: "🌻",
+      en: "Fertilizer Application",
+      te: "ఎరువులు వేయడం",
+      enDesc: "Applying fertilizers to support crop growth.",
+      teDesc: "పంట పెరుగుదలకు ఎరువులు వేయడం.",
+    },
+  ];
+
+  // LANGUAGE SELECTION SCREEN
+  if (!started) {
+    return (
+      <div className="app-container">
+        <div className="language-card">
+          <div className="app-logo">🌾</div>
+>>>>>>> dcfc78ae4a564c43c7ecf7aff1809c882cdce3db
 
         <nav className="nav-actions" aria-label={t.loginOptions}>
           <select
@@ -68,6 +148,7 @@ function WelcomeScreen() {
           <p className="hero-description">{t.description}</p>
           <p className="hero-note">{t.selectRole}</p>
         </div>
+<<<<<<< HEAD
         <span className="hero-location">{t.fieldWork}</span>
       </section>
 
@@ -142,179 +223,256 @@ function FarmerLogin() {
     }
     navigate("/farmer-dashboard");
   };
+=======
+      </div>
+    );
+  }
+>>>>>>> dcfc78ae4a564c43c7ecf7aff1809c882cdce3db
 
+  // HOME DASHBOARD
   return (
-    <div className="app-container">
-      <div className="welcome-card">
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f0f7f1",
+        width: "100%",
+      }}
+    >
+      {/* HEADER */}
+      <header
+        style={{
+          background: "#ffffff",
+          padding: "15px 5%",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "15px",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+        }}
+      >
+        <h2 style={{ color: "#167044", margin: 0 }}>
+          🌾 Harvest Hub
+        </h2>
 
-        <div className="top-bar">
-          <h2>🌾 Harvest Hub</h2>
-
+        {/* RIGHT TOP CORNER */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            flexWrap: "wrap",
+            gap: "10px",
+          }}
+        >
           <select
             value={language}
             onChange={(e) => changeLanguage(e.target.value)}
+<<<<<<< HEAD
+=======
+            style={{
+              padding: "10px",
+              borderRadius: "8px",
+              border: "1px solid #ccc",
+            }}
+>>>>>>> dcfc78ae4a564c43c7ecf7aff1809c882cdce3db
           >
             <option value="en">English</option>
             <option value="te">తెలుగు</option>
           </select>
+
+          <button
+            onClick={() => navigate("/farmer-login")}
+            style={{
+              background: "#167044",
+              color: "white",
+              border: "none",
+              padding: "11px 16px",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontWeight: "600",
+            }}
+          >
+            👨‍🌾 {isTelugu ? "రైతు లాగిన్" : "Farmer Login"}
+          </button>
+
+          <button
+            onClick={() => navigate("/worker-login")}
+            style={{
+              background: "#2563eb",
+              color: "white",
+              border: "none",
+              padding: "11px 16px",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontWeight: "600",
+            }}
+          >
+            👷 {isTelugu ? "కార్మికుల లాగిన్" : "Worker Login"}
+          </button>
         </div>
+      </header>
 
-        <div className="welcome-content">
+      <main
+        style={{
+          maxWidth: "1200px",
+          margin: "0 auto",
+          padding: "40px 20px",
+        }}
+      >
+        {/* HERO SECTION */}
+        <section
+          style={{
+            background: "white",
+            padding: "45px 25px",
+            borderRadius: "18px",
+            textAlign: "center",
+            boxShadow: "0 5px 20px rgba(0,0,0,0.05)",
+          }}
+        >
+          <div style={{ fontSize: "55px" }}>🌾</div>
 
-          <div className="app-logo">👨‍🌾</div>
-
-          <h1>
-            {isRegister
-              ? isTelugu
-                ? "రైతు నమోదు"
-                : "Farmer Registration"
-              : isTelugu
-                ? "రైతు లాగిన్"
-                : "Farmer Login"}
-          </h1>
-
-          <p>
+          <h1 style={{ color: "#166534", fontSize: "38px" }}>
             {isTelugu
               ? "హార్వెస్ట్ హబ్‌కు స్వాగతం"
               : "Welcome to Harvest Hub"}
+          </h1>
+
+          <h2 style={{ color: "#374151" }}>
+            {isTelugu
+              ? "రైతులు మరియు వ్యవసాయ కార్మికులను కలిపే వేదిక"
+              : "Connecting Farmers and Agricultural Workers"}
+          </h2>
+
+          <p style={{ color: "#6b7280", lineHeight: "1.8" }}>
+            {isTelugu
+              ? "వ్యవసాయ పనులను కనుగొనండి, కార్మికులతో అనుసంధానం అవ్వండి మరియు స్మార్ట్ వ్యవసాయ సేవలను పొందండి."
+              : "Discover agricultural work, connect with workers, and explore smart farming assistance in one place."}
+          </p>
+        </section>
+
+        {/* AGRICULTURAL WORK CATEGORIES */}
+        <section style={{ marginTop: "45px" }}>
+          <h2
+            style={{
+              textAlign: "center",
+              color: "#166534",
+              fontSize: "30px",
+            }}
+          >
+            {isTelugu
+              ? "వ్యవసాయ పనులు"
+              : "Agricultural Work Categories"}
+          </h2>
+
+          <p style={{ textAlign: "center", color: "#6b7280" }}>
+            {isTelugu
+              ? "రైతులకు అవసరమైన వివిధ వ్యవసాయ పనులు"
+              : "Explore common agricultural activities"}
           </p>
 
-          <form
-            onSubmit={handleSubmit}
+          <div
             style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "15px",
-              textAlign: "left",
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(230px, 1fr))",
+              gap: "20px",
               marginTop: "25px",
             }}
           >
+            {services.map((service, index) => (
+              <div
+                key={index}
+                style={{
+                  background: "white",
+                  padding: "25px 20px",
+                  borderRadius: "14px",
+                  textAlign: "center",
+                  border: "1px solid #e5e7eb",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.04)",
+                }}
+              >
+                <div style={{ fontSize: "42px" }}>
+                  {service.icon}
+                </div>
 
-            {isRegister && (
-              <div>
-                <label>
-                  {isTelugu ? "పూర్తి పేరు" : "Full Name"}
-                </label>
+                <h3 style={{ color: "#166534" }}>
+                  {isTelugu ? service.te : service.en}
+                </h3>
 
-                <input
-                  type="text"
-                  placeholder={
-                    isTelugu
-                      ? "మీ పేరు నమోదు చేయండి"
-                      : "Enter your full name"
-                  }
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  style={inputStyle}
-                />
+                <p style={{ color: "#6b7280", lineHeight: "1.6" }}>
+                  {isTelugu
+                    ? service.teDesc
+                    : service.enDesc}
+                </p>
               </div>
-            )}
+            ))}
+          </div>
+        </section>
 
-            <div>
-              <label>
-                {isTelugu ? "మొబైల్ నంబర్" : "Mobile Number"}
-              </label>
+        {/* HOW IT WORKS */}
+        <section
+          style={{
+            marginTop: "45px",
+            background: "#e2f3e7",
+            padding: "30px 20px",
+            borderRadius: "16px",
+            textAlign: "center",
+          }}
+        >
+          <h2 style={{ color: "#166534" }}>
+            {isTelugu ? "ఇది ఎలా పనిచేస్తుంది?" : "How It Works"}
+          </h2>
 
-              <input
-                type="tel"
-                placeholder={
-                  isTelugu
-                    ? "10 అంకెల మొబైల్ నంబర్"
-                    : "Enter 10-digit mobile number"
-                }
-                value={mobile}
-                maxLength={10}
-                onChange={(e) =>
-                  setMobile(e.target.value.replace(/\D/g, ""))
-                }
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label>
-                {isTelugu ? "పాస్‌వర్డ్" : "Password"}
-              </label>
-
-              <input
-                type="password"
-                placeholder={
-                  isTelugu
-                    ? "మీ పాస్‌వర్డ్ నమోదు చేయండి"
-                    : "Enter your password"
-                }
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="continue-btn"
-            >
-              {isRegister
-                ? isTelugu
-                  ? "నమోదు చేయండి"
-                  : "Register"
-                : isTelugu
-                  ? "లాగిన్"
-                  : "Login"}
-            </button>
-
-          </form>
-
-          <p style={{ marginTop: "20px" }}>
-            {isRegister
-              ? isTelugu
-                ? "ఇప్పటికే ఖాతా ఉందా?"
-                : "Already have an account?"
-              : isTelugu
-                ? "ఖాతా లేదా?"
-                : "Don't have an account?"}
+          <p style={{ color: "#374151", lineHeight: "1.8" }}>
+            {isTelugu
+              ? "రైతులు పనులను పోస్ట్ చేయవచ్చు. కార్మికులు అందుబాటులో ఉన్న పనులను చూసి దరఖాస్తు చేసుకోవచ్చు."
+              : "Farmers can post jobs. Workers can explore available opportunities and apply for work."}
           </p>
+        </section>
 
-          <button
-            type="button"
-            onClick={() => {
-              setIsRegister(!isRegister);
-              setName("");
-              setMobile("");
-              setPassword("");
-            }}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#167044",
-              fontWeight: "bold",
-              cursor: "pointer",
-              fontSize: "16px",
-            }}
-          >
-            {isRegister
-              ? isTelugu
-                ? "లాగిన్‌కు తిరిగి వెళ్ళండి"
-                : "Back to Login"
-              : isTelugu
-                ? "కొత్త రైతుగా నమోదు చేసుకోండి"
-                : "Register as a new Farmer"}
-          </button>
+        {/* CNN FEATURE */}
+        <section
+          style={{
+            marginTop: "25px",
+            background: "white",
+            padding: "30px 20px",
+            borderRadius: "16px",
+            textAlign: "center",
+            border: "1px solid #d1fae5",
+          }}
+        >
+          <div style={{ fontSize: "40px" }}>🤖🌿</div>
 
-          <button
-            className="continue-btn"
-            type="button"
-            onClick={() => navigate("/")}
-            style={{ marginTop: "15px" }}
-          >
-            ← {isTelugu ? "హోమ్‌కు తిరిగి వెళ్ళండి" : "Back to Home"}
-          </button>
+          <h2 style={{ color: "#166534" }}>
+            {isTelugu ? "AI పంట సహాయం" : "AI Crop Assistance"}
+          </h2>
 
-        </div>
-      </div>
+          <p style={{ color: "#6b7280", lineHeight: "1.7" }}>
+            {isTelugu
+              ? "CNN ఆధారిత పంట సమస్యల గుర్తింపు ఫీచర్ త్వరలో అందుబాటులో ఉంటుంది."
+              : "CNN-based crop problem recognition will be available as a future feature."}
+          </p>
+        </section>
+      </main>
+
+      {/* FOOTER */}
+      <footer
+        style={{
+          background: "#166534",
+          color: "white",
+          textAlign: "center",
+          padding: "20px",
+          marginTop: "30px",
+        }}
+      >
+        © 2026 Harvest Hub | Smart Agriculture Platform
+      </footer>
     </div>
   );
 }
 
+<<<<<<< HEAD
 function WorkerLogin() {
   const { language, changeLanguage } = useLanguage();
   const navigate = useNavigate();
@@ -523,15 +681,60 @@ function App() {
       <Route path="/worker-login" element={<WorkerLogin />} />
 
       {/* Dashboard Pages */}
+=======
+// ==========================================
+// APPLICATION ROUTES
+// ==========================================
+
+function App() {
+  return (
+    <Routes>
+      {/* COMMON HOME DASHBOARD */}
+      <Route path="/" element={<WelcomeScreen />} />
+
+      {/* FARMER LOGIN */}
+      <Route
+        path="/farmer-login"
+        element={
+          <Login
+            role="farmer"
+            onBack={() => window.history.back()}
+          />
+        }
+      />
+
+      {/* WORKER LOGIN */}
+      <Route
+        path="/worker-login"
+        element={
+          <Login
+            role="worker"
+            onBack={() => window.history.back()}
+          />
+        }
+      />
+
+      {/* FARMER DASHBOARD */}
+>>>>>>> dcfc78ae4a564c43c7ecf7aff1809c882cdce3db
       <Route
         path="/farmer-dashboard"
         element={<FarmerDashboard />}
       />
 
+<<<<<<< HEAD
+=======
+      {/* WORKER DASHBOARD */}
+>>>>>>> dcfc78ae4a564c43c7ecf7aff1809c882cdce3db
       <Route
         path="/worker-dashboard"
         element={<WorkerDashboard />}
       />
+<<<<<<< HEAD
+=======
+
+      {/* UNKNOWN PATH */}
+      <Route path="*" element={<WelcomeScreen />} />
+>>>>>>> dcfc78ae4a564c43c7ecf7aff1809c882cdce3db
     </Routes>
   );
 }

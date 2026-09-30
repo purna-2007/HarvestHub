@@ -1,9 +1,18 @@
 
 import React from "react";
+<<<<<<< HEAD
 
 function FarmerDashboard() {
   return (
     <div style={{ padding: "30px", fontFamily: "Arial" }}>
+=======
+import BackButton from "../components/BackButton";
+
+function FarmerDashboard() {
+  return (
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+      <BackButton label="Back" />
+>>>>>>> dcfc78ae4a564c43c7ecf7aff1809c882cdce3db
       <h1>👨‍🌾 Welcome to Farmer Dashboard</h1>
       <p>Manage your agricultural activities with Harvest Hub.</p>
 

@@ -1,8 +1,14 @@
 
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { loginUser, registerUser } from "../services/api";
 
 function Login({ role = "worker", onBack }) {
   const [isRegister, setIsRegister] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -16,6 +22,10 @@ function Login({ role = "worker", onBack }) {
   const title = isWorker ? "Worker" : "Farmer";
   const emoji = isWorker ? "👷" : "👨‍🌾";
 
+  const dashboardPath = isWorker
+    ? "/worker-dashboard"
+    : "/farmer-dashboard";
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -23,29 +33,108 @@ function Login({ role = "worker", onBack }) {
       ...prev,
       [name]: value,
     }));
+
+    setError("");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
 
+    // Mobile number validation
     if (!/^[6-9]\d{9}$/.test(formData.mobile)) {
-      alert("Please enter a valid 10-digit mobile number.");
+      setError("Please enter a valid 10-digit mobile number.");
       return;
     }
 
+    // Registration validation
     if (isRegister) {
-      if (formData.password !== formData.confirmPassword) {
-        alert("Passwords do not match.");
+      if (!formData.name.trim()) {
+        setError("Please enter your full name.");
         return;
       }
 
-      alert(
-        `${title} registration form validated successfully! Backend integration will be added soon.`
+      if (formData.password !== formData.confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+
+      if (formData.password.length < 6) {
+        setError("Password must contain at least 6 characters.");
+        return;
+      }
+    }
+
+    setLoading(true);
+
+    try {
+      if (isRegister) {
+        // Register user in backend
+        const response = await registerUser({
+          name: formData.name.trim(),
+          mobile: formData.mobile,
+          password: formData.password,
+          role: role.toLowerCase(),
+        });
+
+        if (response.success === false) {
+          throw new Error(
+            response.message || "Registration failed."
+          );
+        }
+
+        alert(
+          `${title} registration successful! Please login.`
+        );
+
+        // Switch to login after successful registration
+        setIsRegister(false);
+
+        setFormData({
+          name: "",
+          mobile: formData.mobile,
+          password: "",
+          confirmPassword: "",
+        });
+      } else {
+        // Login user through backend
+        const response = await loginUser({
+          mobile: formData.mobile,
+          password: formData.password,
+          role: role.toLowerCase(),
+        });
+
+        if (response.success === false) {
+          throw new Error(
+            response.message || "Login failed."
+          );
+        }
+
+        // Save authentication token if backend returns one
+        if (response.token) {
+          localStorage.setItem("token", response.token);
+        }
+
+        // Save logged-in user details if provided
+        if (response.user) {
+          localStorage.setItem(
+            "user",
+            JSON.stringify(response.user)
+          );
+        }
+
+        // Navigate to the respective dashboard
+        navigate(dashboardPath, { replace: true });
+      }
+    } catch (err) {
+      console.error("Authentication error:", err);
+
+      setError(
+        err.message ||
+          "Unable to connect to the server. Please try again."
       );
-    } else {
-      alert(
-        `${title} login form validated successfully! Backend integration will be added soon.`
-      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -103,14 +192,14 @@ function Login({ role = "worker", onBack }) {
       outlineColor: "#166534",
     },
     submit: {
-      background: "#166534",
+      background: loading ? "#9ca3af" : "#166534",
       color: "white",
       border: "none",
       padding: "14px",
       borderRadius: "9px",
       fontSize: "16px",
       fontWeight: "bold",
-      cursor: "pointer",
+      cursor: loading ? "not-allowed" : "pointer",
       marginTop: "10px",
     },
     switch: {
@@ -134,6 +223,15 @@ function Login({ role = "worker", onBack }) {
       fontWeight: "bold",
       marginTop: "20px",
     },
+    error: {
+      color: "#dc2626",
+      background: "#fef2f2",
+      border: "1px solid #fecaca",
+      borderRadius: "8px",
+      padding: "10px",
+      fontSize: "14px",
+      lineHeight: "1.5",
+    },
   };
 
   return (
@@ -149,10 +247,17 @@ function Login({ role = "worker", onBack }) {
           Welcome to Harvest Hub
         </p>
 
+        {error && (
+          <div style={styles.error} role="alert">
+            {error}
+          </div>
+        )}
+
         <form style={styles.form} onSubmit={handleSubmit}>
           {isRegister && (
             <div>
               <label style={styles.label}>Full Name</label>
+
               <input
                 style={styles.input}
                 type="text"
@@ -161,12 +266,14 @@ function Login({ role = "worker", onBack }) {
                 value={formData.name}
                 onChange={handleChange}
                 required
+                disabled={loading}
               />
             </div>
           )}
 
           <div>
             <label style={styles.label}>Mobile Number</label>
+
             <input
               style={styles.input}
               type="tel"
@@ -176,11 +283,13 @@ function Login({ role = "worker", onBack }) {
               onChange={handleChange}
               maxLength={10}
               required
+              disabled={loading}
             />
           </div>
 
           <div>
             <label style={styles.label}>Password</label>
+
             <input
               style={styles.input}
               type="password"
@@ -189,6 +298,7 @@ function Login({ role = "worker", onBack }) {
               value={formData.password}
               onChange={handleChange}
               required
+              disabled={loading}
             />
           </div>
 
@@ -197,6 +307,7 @@ function Login({ role = "worker", onBack }) {
               <label style={styles.label}>
                 Confirm Password
               </label>
+
               <input
                 style={styles.input}
                 type="password"
@@ -205,12 +316,21 @@ function Login({ role = "worker", onBack }) {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
+                disabled={loading}
               />
             </div>
           )}
 
-          <button type="submit" style={styles.submit}>
-            {isRegister ? "Register" : "Login"}
+          <button
+            type="submit"
+            style={styles.submit}
+            disabled={loading}
+          >
+            {loading
+              ? "Please wait..."
+              : isRegister
+              ? "Register"
+              : "Login"}
           </button>
         </form>
 
@@ -222,9 +342,13 @@ function Login({ role = "worker", onBack }) {
           <br />
 
           <button
+            type="button"
             style={styles.link}
+            disabled={loading}
             onClick={() => {
               setIsRegister(!isRegister);
+              setError("");
+
               setFormData({
                 name: "",
                 mobile: "",
@@ -238,6 +362,7 @@ function Login({ role = "worker", onBack }) {
         </div>
 
         <button
+          type="button"
           style={styles.back}
           onClick={onBack || (() => window.history.back())}
         >
