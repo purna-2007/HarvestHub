@@ -1,374 +1,97 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser, registerUser } from "../services/api";
+import { useLanguage } from "../Languagecontext";
 
-function Login({ role = "worker", onBack }) {
-  const [isRegister, setIsRegister] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
+function Login({ role }) {
   const navigate = useNavigate();
+  const { language } = useLanguage();
 
-  const [formData, setFormData] = useState({
-    name: "",
-    mobile: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
 
-  const isWorker = role.toLowerCase() === "worker";
+  const isFarmer = role === "farmer";
 
-  const title = isWorker ? "Worker" : "Farmer";
-  const emoji = isWorker ? "👷" : "👨‍🌾";
-
-  const dashboardPath = isWorker
-    ? "/worker-dashboard"
-    : "/farmer-dashboard";
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    setError("");
-  };
-
-  const handleSubmit = async (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
-    setError("");
 
-    // Mobile number validation
-    if (!/^[6-9]\d{9}$/.test(formData.mobile)) {
-      setError("Please enter a valid 10-digit mobile number.");
+    if (!phone || !password) {
+      alert(
+        language === "te"
+          ? "దయచేసి అన్ని వివరాలను నమోదు చేయండి"
+          : "Please enter all details"
+      );
       return;
     }
 
-    // Registration validation
-    if (isRegister) {
-      if (!formData.name.trim()) {
-        setError("Please enter your full name.");
-        return;
-      }
-
-      if (formData.password !== formData.confirmPassword) {
-        setError("Passwords do not match.");
-        return;
-      }
-
-      if (formData.password.length < 6) {
-        setError("Password must contain at least 6 characters.");
-        return;
-      }
+    // Temporary login navigation
+    // Later this will be replaced with backend authentication.
+    if (isFarmer) {
+      navigate("/farmer/dashboard");
+    } else {
+      navigate("/worker/dashboard");
     }
-
-    setLoading(true);
-
-    try {
-      if (isRegister) {
-        // Register user in backend
-        const response = await registerUser({
-          name: formData.name.trim(),
-          mobile: formData.mobile,
-          password: formData.password,
-          role: role.toLowerCase(),
-        });
-
-        if (response.success === false) {
-          throw new Error(
-            response.message || "Registration failed."
-          );
-        }
-
-        alert(
-          `${title} registration successful! Please login.`
-        );
-
-        // Switch to login after successful registration
-        setIsRegister(false);
-
-        setFormData({
-          name: "",
-          mobile: formData.mobile,
-          password: "",
-          confirmPassword: "",
-        });
-      } else {
-        // Login user through backend
-        const response = await loginUser({
-          mobile: formData.mobile,
-          password: formData.password,
-          role: role.toLowerCase(),
-        });
-
-        if (response.success === false) {
-          throw new Error(
-            response.message || "Login failed."
-          );
-        }
-
-        // Save authentication token if backend returns one
-        if (response.token) {
-          localStorage.setItem("token", response.token);
-        }
-
-        // Save logged-in user details if provided
-        if (response.user) {
-          localStorage.setItem(
-            "user",
-            JSON.stringify(response.user)
-          );
-        }
-
-        // Navigate to the respective dashboard
-        navigate(dashboardPath, { replace: true });
-      }
-    } catch (err) {
-      console.error("Authentication error:", err);
-
-      setError(
-        err.message ||
-          "Unable to connect to the server. Please try again."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const styles = {
-    container: {
-      minHeight: "100vh",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "#f0f7f2",
-      padding: "20px",
-      fontFamily: "Arial, sans-serif",
-    },
-    card: {
-      width: "100%",
-      maxWidth: "450px",
-      background: "#ffffff",
-      padding: "35px",
-      borderRadius: "20px",
-      boxShadow: "0 10px 35px rgba(0,0,0,0.08)",
-      textAlign: "center",
-    },
-    emoji: {
-      fontSize: "55px",
-      marginBottom: "10px",
-    },
-    heading: {
-      color: "#166534",
-      fontSize: "30px",
-      marginBottom: "10px",
-    },
-    subtitle: {
-      color: "#666",
-      marginBottom: "25px",
-    },
-    form: {
-      display: "flex",
-      flexDirection: "column",
-      gap: "15px",
-      textAlign: "left",
-    },
-    label: {
-      fontWeight: "600",
-      color: "#333",
-      marginBottom: "6px",
-      display: "block",
-    },
-    input: {
-      width: "100%",
-      padding: "13px",
-      border: "1px solid #ddd",
-      borderRadius: "9px",
-      fontSize: "15px",
-      boxSizing: "border-box",
-      outlineColor: "#166534",
-    },
-    submit: {
-      background: loading ? "#9ca3af" : "#166534",
-      color: "white",
-      border: "none",
-      padding: "14px",
-      borderRadius: "9px",
-      fontSize: "16px",
-      fontWeight: "bold",
-      cursor: loading ? "not-allowed" : "pointer",
-      marginTop: "10px",
-    },
-    switch: {
-      marginTop: "22px",
-      color: "#555",
-    },
-    link: {
-      color: "#166534",
-      fontWeight: "bold",
-      cursor: "pointer",
-      border: "none",
-      background: "none",
-      fontSize: "15px",
-    },
-    back: {
-      background: "none",
-      border: "none",
-      color: "#166534",
-      cursor: "pointer",
-      fontSize: "15px",
-      fontWeight: "bold",
-      marginTop: "20px",
-    },
-    error: {
-      color: "#dc2626",
-      background: "#fef2f2",
-      border: "1px solid #fecaca",
-      borderRadius: "8px",
-      padding: "10px",
-      fontSize: "14px",
-      lineHeight: "1.5",
-    },
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.emoji}>{emoji}</div>
+    <div className="login-page">
 
-        <h1 style={styles.heading}>
-          {title} {isRegister ? "Registration" : "Login"}
-        </h1>
+      <div className="login-card">
 
-        <p style={styles.subtitle}>
-          Welcome to Harvest Hub
+        <div className="login-logo">
+          🌾
+        </div>
+
+        <h1>HarvestHub</h1>
+
+        <h2>
+          {isFarmer ? "Farmer Login" : "Worker Login"}
+        </h2>
+
+        <p className="login-subtitle">
+          {isFarmer
+            ? "Manage your farm and find workers"
+            : "Find agricultural jobs near you"}
         </p>
 
-        {error && (
-          <div style={styles.error} role="alert">
-            {error}
-          </div>
-        )}
+        <form onSubmit={handleLogin}>
 
-        <form style={styles.form} onSubmit={handleSubmit}>
-          {isRegister && (
-            <div>
-              <label style={styles.label}>Full Name</label>
-
-              <input
-                style={styles.input}
-                type="text"
-                name="name"
-                placeholder="Enter your full name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                disabled={loading}
-              />
-            </div>
-          )}
-
-          <div>
-            <label style={styles.label}>Mobile Number</label>
+          <div className="form-group">
+            <label>Mobile Number</label>
 
             <input
-              style={styles.input}
               type="tel"
-              name="mobile"
-              placeholder="Enter 10-digit mobile number"
-              value={formData.mobile}
-              onChange={handleChange}
-              maxLength={10}
-              required
-              disabled={loading}
+              placeholder="Enter mobile number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
             />
           </div>
 
-          <div>
-            <label style={styles.label}>Password</label>
+          <div className="form-group">
+            <label>Password</label>
 
             <input
-              style={styles.input}
               type="password"
-              name="password"
-              placeholder="Enter your password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              disabled={loading}
+              placeholder="Enter password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-
-          {isRegister && (
-            <div>
-              <label style={styles.label}>
-                Confirm Password
-              </label>
-
-              <input
-                style={styles.input}
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm your password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-                disabled={loading}
-              />
-            </div>
-          )}
 
           <button
             type="submit"
-            style={styles.submit}
-            disabled={loading}
+            className="login-button"
           >
-            {loading
-              ? "Please wait..."
-              : isRegister
-              ? "Register"
-              : "Login"}
+            Login
           </button>
+
         </form>
 
-        <div style={styles.switch}>
-          {isRegister
-            ? "Already have an account?"
-            : "Don't have an account?"}
+        <p className="login-demo">
+          Demo login — backend authentication will be connected later.
+        </p>
 
-          <br />
-
-          <button
-            type="button"
-            style={styles.link}
-            disabled={loading}
-            onClick={() => {
-              setIsRegister(!isRegister);
-              setError("");
-
-              setFormData({
-                name: "",
-                mobile: "",
-                password: "",
-                confirmPassword: "",
-              });
-            }}
-          >
-            {isRegister ? "Back to Login" : "Create Account"}
-          </button>
-        </div>
-
-        <button
-          type="button"
-          style={styles.back}
-          onClick={onBack || (() => window.history.back())}
-        >
-          ← Back to Home
-        </button>
       </div>
+
     </div>
   );
 }

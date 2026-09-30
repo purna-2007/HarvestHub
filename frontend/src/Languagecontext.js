@@ -1,92 +1,131 @@
-
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
 const LanguageContext = createContext();
 
-export const translations = {
+const translations = {
   en: {
-    appName: "Harvest Hub",
-    tagline: "Connecting Farmers and Workers",
-    chooseLanguage: "Choose Your Language",
-    welcome: "Welcome to Harvest Hub",
-    description:
-      "A simple platform to connect farmers with nearby agricultural workers.",
-    continue: "Continue",
+    home: "Home",
+    farmerLogin: "Farmer Login",
+    workerLogin: "Worker Login",
     farmer: "Farmer",
     worker: "Worker",
-    farmerLogin: "Farmer login",
-    workerLogin: "Worker login",
-    loginOptions: "Login options",
-    fieldWork: "Agricultural work",
-    workKicker: "FIELD WORK",
-    workHeading: "Skills for the growing season",
-    workSeeding: "Seeding",
-    workSeedingAlt: "A farmer tending young crops in a green field",
-    workHarvesting: "Harvesting",
-    workHarvestingAlt: "Golden crops ready for harvest",
-    workPruning: "Pruning",
-    workPruningAlt: "Rows of crops growing in a farm field",
-    workTractor: "Tractor driving",
-    workTractorAlt: "Tractor working across a cultivated field",
-    language: "Language",
-    settings: "Settings",
-    dashboard: "Dashboard",
-    selectRole: "How would you like to continue?",
+
+    heroTitle: "Welcome to HarvestHub",
+    heroSubtitle:
+      "Connecting farmers and agricultural workers for a better harvest.",
+
+    exploreWork: "Explore Agricultural Work",
+    getStarted: "Get Started",
+
+    farmerDescription:
+      "Find skilled workers and manage your agricultural work easily.",
+
+    workerDescription:
+      "Find suitable agricultural jobs and connect with farmers.",
+
+    farmerLoginTitle: "Farmer Login",
+    workerLoginTitle: "Worker Login",
+
+    phone: "Phone Number",
+    password: "Password",
+    login: "Login",
+
+    enterPhone: "Enter your phone number",
+    enterPassword: "Enter your password",
+
+    noAccount: "Don't have an account?",
+    register: "Register",
+
+    selectLanguage: "Language",
+
+    availableWork: "Available Agricultural Work",
+
+    backHome: "Back to Home",
+
+    loginSuccess: "Login successful",
+    invalidCredentials: "Invalid phone number or password",
+
+    footer:
+      "HarvestHub - Connecting Farmers and Agricultural Workers"
   },
 
   te: {
-    appName: "హార్వెస్ట్ హబ్",
-    tagline: "రైతులు మరియు కూలీల అనుసంధానం",
-    chooseLanguage: "మీ భాషను ఎంచుకోండి",
-    welcome: "హార్వెస్ట్ హబ్‌కు స్వాగతం",
-    description:
-      "రైతులను దగ్గరలోని వ్యవసాయ కూలీలతో అనుసంధానించే సులభమైన వేదిక.",
-    continue: "కొనసాగించండి",
-    farmer: "రైతు",
-    worker: "కూలీ",
+    home: "హోమ్",
     farmerLogin: "రైతు లాగిన్",
     workerLogin: "కార్మికుల లాగిన్",
-    loginOptions: "లాగిన్ ఎంపికలు",
-    fieldWork: "వ్యవసాయ పనులు",
-    workKicker: "వ్యవసాయ పనులు",
-    workHeading: "పంట కాలంలోని పనులు",
-    workSeeding: "విత్తనాలు వేయడం",
-    workSeedingAlt: "పచ్చని పొలంలో పంటలను చూసుకుంటున్న రైతు",
-    workHarvesting: "పంట కోత",
-    workHarvestingAlt: "కోతకు సిద్ధంగా ఉన్న బంగారు పంట",
-    workPruning: "కొమ్మల కత్తిరింపు",
-    workPruningAlt: "వ్యవసాయ పొలంలో పెరుగుతున్న పంట వరుసలు",
-    workTractor: "ట్రాక్టర్ నడపడం",
-    workTractorAlt: "సాగు చేసిన పొలంలో పనిచేస్తున్న ట్రాక్టర్",
-    language: "భాష",
-    settings: "సెట్టింగ్స్",
-    dashboard: "డ్యాష్‌బోర్డ్",
-    selectRole: "మీరు ఎలా కొనసాగాలనుకుంటున్నారు?",
-  },
+    farmer: "రైతు",
+    worker: "కార్మికుడు",
+
+    heroTitle: "హార్వెస్ట్‌హబ్‌కు స్వాగతం",
+    heroSubtitle:
+      "మెరుగైన పంట కోసం రైతులు మరియు వ్యవసాయ కార్మికులను కలుపుతుంది.",
+
+    exploreWork: "వ్యవసాయ పనులను చూడండి",
+    getStarted: "ప్రారంభించండి",
+
+    farmerDescription:
+      "నైపుణ్యం కలిగిన కార్మికులను కనుగొని వ్యవసాయ పనులను సులభంగా నిర్వహించండి.",
+
+    workerDescription:
+      "సరైన వ్యవసాయ పనులను కనుగొని రైతులతో కనెక్ట్ అవ్వండి.",
+
+    farmerLoginTitle: "రైతు లాగిన్",
+    workerLoginTitle: "కార్మికుల లాగిన్",
+
+    phone: "ఫోన్ నంబర్",
+    password: "పాస్‌వర్డ్",
+    login: "లాగిన్",
+
+    enterPhone: "మీ ఫోన్ నంబర్ నమోదు చేయండి",
+    enterPassword: "మీ పాస్‌వర్డ్ నమోదు చేయండి",
+
+    noAccount: "ఖాతా లేదా?",
+    register: "రిజిస్టర్",
+
+    selectLanguage: "భాష",
+
+    availableWork: "అందుబాటులో ఉన్న వ్యవసాయ పనులు",
+
+    backHome: "హోమ్‌కు తిరిగి వెళ్ళండి",
+
+    loginSuccess: "లాగిన్ విజయవంతమైంది",
+    invalidCredentials: "ఫోన్ నంబర్ లేదా పాస్‌వర్డ్ తప్పు",
+
+    footer:
+      "హార్వెస్ట్‌హబ్ - రైతులు మరియు వ్యవసాయ కార్మికులను కలుపుతుంది"
+  }
 };
 
-
-export function LanguageProvider({ children }) {
+export const LanguageProvider = ({ children }) => {
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem("harvest-language") || "en";
+    return localStorage.getItem("harvesthub_language") || "en";
   });
+
+  useEffect(() => {
+    localStorage.setItem("harvesthub_language", language);
+  }, [language]);
 
   const changeLanguage = (newLanguage) => {
     setLanguage(newLanguage);
-    localStorage.setItem("harvest-language", newLanguage);
   };
 
-  const t = translations[language] || translations.en;
+  const t = (key) => {
+    return translations[language]?.[key] || key;
+  };
 
   return (
     <LanguageContext.Provider
-      value={{ language, changeLanguage, t }}
+      value={{
+        language,
+        changeLanguage,
+        t
+      }}
     >
       {children}
     </LanguageContext.Provider>
   );
-}
+};
 
-export function useLanguage() {
+export const useLanguage = () => {
   return useContext(LanguageContext);
-}
+};

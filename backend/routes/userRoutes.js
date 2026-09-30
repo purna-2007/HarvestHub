@@ -1,12 +1,7 @@
-const express = require('express');
-const { getMe, login, register, authenticateToken, updateMe } = require('../controllers/userController');
-const { offlineSync } = require('../middleware/offlineSync');
-
+const express = require("express");
 const router = express.Router();
-router.post('/register', register);
-router.post('/login', login);
-router.get('/me', authenticateToken, getMe);
-router.patch('/me', authenticateToken, updateMe);
-router.post('/sync', authenticateToken, offlineSync);
+const userController = require("../controllers/userController");
+
+router.post("/register", userController.registerUser);
 
 module.exports = router;
