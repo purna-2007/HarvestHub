@@ -5,47 +5,34 @@ import { useLanguage } from "../Languagecontext";
 function Login({ role }) {
   const navigate = useNavigate();
   const { language } = useLanguage();
-
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-
+  const [error, setError] = useState("");
   const isFarmer = role === "farmer";
 
   const handleLogin = (e) => {
     e.preventDefault();
 
-    if (!phone || !password) {
-      alert(
-        language === "te"
-          ? "దయచేసి అన్ని వివరాలను నమోదు చేయండి"
-          : "Please enter all details"
-      );
+    const mobileNumber = phone.trim();
+    if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
+      setError(language === "te"
+        ? "చెల్లుబాటు అయ్యే 10 అంకెల భారతీయ మొబైల్ నంబర్ నమోదు చేయండి"
+        : "Enter a valid 10-digit Indian mobile number");
       return;
     }
 
-    // Temporary login navigation
-    // Later this will be replaced with backend authentication.
-    if (isFarmer) {
-      navigate("/farmer/dashboard");
-    } else {
-      navigate("/worker/dashboard");
-    }
+    localStorage.setItem("harvesthub_phone", mobileNumber);
+    localStorage.setItem("harvesthub_role", role);
+    navigate(isFarmer ? "/farmer/dashboard" : "/worker/dashboard");
   };
 
   return (
     <div className="login-page">
-
       <div className="login-card">
-
-        <div className="login-logo">
-          🌾
-        </div>
+        <div className="login-logo">🌾</div>
 
         <h1>HarvestHub</h1>
 
-        <h2>
-          {isFarmer ? "Farmer Login" : "Worker Login"}
-        </h2>
+        <h2>{isFarmer ? "Farmer Login" : "Worker Login"}</h2>
 
         <p className="login-subtitle">
           {isFarmer
@@ -54,44 +41,40 @@ function Login({ role }) {
         </p>
 
         <form onSubmit={handleLogin}>
-
           <div className="form-group">
-            <label>Mobile Number</label>
-
+            <label htmlFor="login-phone">Mobile Number</label>
             <input
+              id="login-phone"
               type="tel"
+              inputMode="numeric"
+              autoComplete="tel-national"
+              maxLength={10}
+              pattern="[6-9][0-9]{9}"
+              title="Enter a valid 10-digit Indian mobile number"
               placeholder="Enter mobile number"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (/^\d{0,10}$/.test(value)) {
+                  setPhone(value);
+                  setError("");
+                }
+              }}
+              required
             />
           </div>
 
-          <div className="form-group">
-            <label>Password</label>
+          {error && <p role="alert">{error}</p>}
 
-            <input
-              type="password"
-              placeholder="Enter password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="login-button"
-          >
+          <button type="submit" className="login-button">
             Login
           </button>
-
         </form>
 
         <p className="login-demo">
-          Demo login — backend authentication will be connected later.
+          Enter your 10-digit mobile number to continue. No OTP is required.
         </p>
-
       </div>
-
     </div>
   );
 }

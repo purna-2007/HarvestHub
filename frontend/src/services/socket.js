@@ -1,8 +1,12 @@
+
 import { io } from "socket.io-client";
 
-// Connect to your local backend server port instance
-const socket = io("http://localhost:3000", {
-  autoConnect: true
-});
+const socket = io(
+  process.env.REACT_APP_API_URL || "http://localhost:5001",
+  {
+    autoConnect: true,
+    transports: ["websocket", "polling"]
+  }
+);
 
 export default socket;

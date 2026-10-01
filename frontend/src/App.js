@@ -7,7 +7,7 @@ import Home from "./views/Home";
 import Login from "./views/Login";
 import FarmerDashboard from "./views/FarmerDashboard";
 import WorkerDashboard from "./views/WorkerDashboard";
-
+import Workerprofile from "./views/Workerprofile";
 import "./App.css";
 
 function App() {
@@ -42,7 +42,10 @@ function App() {
             path="/worker/dashboard"
             element={<WorkerDashboard />}
           />
-
+          <Route
+            path="/worker/profile"
+            element={<Workerprofile />}
+          />
         </Routes>
       </BrowserRouter>
     </LanguageProvider>

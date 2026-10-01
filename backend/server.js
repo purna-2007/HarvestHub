@@ -1,38 +1,30 @@
-const express = require("express");
-const cors = require("cors");
-const http = require("http");
-const { Server } = require("socket.io");
-
-const userRoutes = require("./routes/userRoutes");
-const jobRoutes = require("./routes/jobRoutes");
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const cors = require('cors');
+const { Server } = require('socket.io');
+const { initializeDatabase } = require('./config/database');
+const jobRoutes = require('./routes/jobRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 const server = http.createServer(app);
+const allowedOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+const io = new Server(server, { cors: { origin: allowedOrigin, methods: ['GET','POST','PUT','PATCH','DELETE'] } });
+app.set('io', io);
+app.use(cors({ origin: allowedOrigin }));
+app.use(express.json({ limit: '2mb' }));
+app.get('/api/health', (_req,res) => res.json({ success:true, service:'HarvestHub API' }));
+app.use('/api/jobs', jobRoutes);
+app.use('/api/users', userRoutes);
 
-// Enable cross-origin calls and payload parsers
-app.use(cors());
-app.use(express.json());
-
-// Bind routing modules
-app.use("/api/users", userRoutes);
-app.use("/api/jobs", jobRoutes);
-
-// Establish real-time tracking network sockets setup
-const io = new Server(server, {
-  cors: { origin: "*" }
+const last10 = value => String(value || '').replace(/\D/g,'').slice(-10);
+io.on('connection', socket => {
+  socket.on('register_farmer', data => { const phone=last10(data?.farmer_phone || data?.phone); if(phone) socket.join(`farmer:${phone}`); });
+  socket.on('register_worker', data => { const phone=last10(data?.worker_phone || data?.phone); if(phone) socket.join(`worker:${phone}`); });
 });
 
-io.on("connection", (socket) => {
-  console.log("⚡ A user connected to real-time notification stream:", socket.id);
-  
-  socket.on("job_accepted", (data) => {
-    io.emit("notify_farmer", { message: `Worker accepted your job posting!`, jobId: data.jobId });
-  });
-
-  socket.on("disconnect", () => console.log("User disconnected."));
-});
-
-const PORT = 3000;
-server.listen(PORT, () => {
-  console.log(`🚀 Node Server running flawlessly on http://localhost:${PORT}`);
-});
+const port = Number(process.env.PORT || 5001);
+initializeDatabase()
+  .then(() => server.listen(port, () => console.log(`HarvestHub MySQL API listening on port ${port}`)))
+  .catch(error => { console.error('Database initialization failed:', error); process.exit(1); });
