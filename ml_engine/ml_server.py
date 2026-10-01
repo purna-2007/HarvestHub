@@ -1,128 +1,12 @@
-<<<<<<< HEAD
-import os
-import pickle
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-import numpy as np
 
-app = Flask(__name__)
-CORS(app)  # Enable Cross-Origin Resource Sharing for backend communication
-
-# Global placeholders for the trained models
-wage_model = None
-jobs_model = None
-matching_model = None
-
-
-def load_trained_models():
-    """Safely loads the trained pickle models from the models directory."""
-    global wage_model, jobs_model, matching_model
-
-    # Define paths exactly where your scripts export them
-    wage_path = "models/forecast_wage_model.pkl"
-    jobs_path = "models/forecast_jobs_model.pkl"
-    matching_path = "models/matching_model.pkl"
-
-    try:
-        if os.path.exists(wage_path):
-            with open(wage_path, "rb") as f:
-                wage_model = pickle.load(f)
-        if os.path.exists(jobs_path):
-            with open(jobs_path, "rb") as f:
-                jobs_model = pickle.load(f)
-        if os.path.exists(matching_path):
-            with open(matching_path, "rb") as f:
-                matching_model = pickle.load(f)
-
-        print("🤖 All Machine Learning Models loaded cleanly into memory!")
-    except Exception as e:
-        print(f"⚠️ Error loading models: {str(e)}. Using safe mathematical fallbacks.")
-
-
-# ==========================================
-# ENDPOINT 1: WAGE & LABOUR DEMAND FORECAST
-# ==========================================
-@app.route("/predict_forecast", methods=["POST"])
-def predict_forecast():
-    """Expects historical demanded and supplied counts.
-
-    Returns dynamic suggested wage and job volume forecast.
-    """
-    data = request.json
-    try:
-        # Extract features matching your training datasets exactly
-        demanded = float(data.get("demanded", 100))
-        supplied = float(data.get("supplied", 60))
-
-        features = np.array([[demanded, supplied]])
-
-        # Predict using models if available, otherwise apply economic rules
-        if wage_model and jobs_model:
-            pred_wage = wage_model.predict(features)[0]
-            pred_jobs = jobs_model.predict(features)[0]
-        else:
-            # High demand + low supply spikes baseline daily wage
-            pred_wage = 450 + (demanded - supplied) * 2.5
-            pred_jobs = max(5, int(demanded * 0.6))
-
-        return jsonify(
-            {
-                "success": True,
-                "suggested_wage": round(float(pred_wage), 2),
-                "predicted_jobs_next_week": max(1, int(pred_jobs)),
-            }
-        )
-
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-# ==========================================
-# ENDPOINT 2: GEOSPATIAL WORKER MATCH SCORE
-# ==========================================
-@app.route("/predict_match", methods=["POST"])
-def predict_match():
-    """Expects worker metrics and proximity distance.
-
-    Returns a matching probability score.
-    """
-    data = request.json
-    try:
-        experience = float(data.get("experience", 5))
-        distance = float(data.get("distance", 5.0))
-        w_rating = float(data.get("worker_rating", 4.5))
-        f_rating = float(data.get("farmer_rating", 4.2))
-        acceptance_rate = float(data.get("acceptance_rate", 0.8))
-
-        features = np.array(
-            [[experience, distance, w_rating, f_rating, acceptance_rate]]
-        )
-
-        if matching_model:
-            # Fetch match probability percentage for successful class (index 1)
-            prob = matching_model.predict_proba(features)[0][1]
-            match_percentage = prob * 100
-        else:
-            # Safe heuristic rule matching: penalize high distance, reward experience
-            base_score = 85 + (experience * 1.5) - (distance * 1.2)
-            match_percentage = min(99, max(40, base_score))
-
-        return jsonify({"success": True, "match_score": round(float(match_percentage), 2)})
-
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-if __name__ == "__main__":
-    load_trained_models()
-    # Run locally on Port 5000 matching your backend proxy configs
-    app.run(host="127.0.0.1", port=5000, debug=True)
-=======
 
 from flask import Flask, request, jsonify
 import joblib
 import pandas as pd
 import numpy as np
+import os
+import json
+import tensorflow as tf
 
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -203,6 +87,82 @@ print("✓ Market Wage model loaded")
 print("✓ Labour Demand model loaded")
 print("✓ Worker Matching model loaded")
 
+# ============================================================
+# LOAD PLANT DISEASE CNN MODEL
+# ============================================================
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+cnn_model_path = os.path.join(
+    BASE_DIR,
+    "models",
+    "plant_disease",
+    "best_fine_tuned_model.keras"
+)
+
+class_names_path = os.path.join(
+    BASE_DIR,
+    "models",
+    "plant_disease",
+    "class_names.json"
+)
+
+treatment_csv_path = os.path.join(
+    BASE_DIR,
+    "datasets",
+    "disease_treatment.csv"
+)
+
+plant_disease_model = tf.keras.models.load_model(
+    cnn_model_path
+)
+
+with open(class_names_path, "r") as f:
+    class_names = json.load(f)
+
+treatment_df = pd.read_csv(
+    treatment_csv_path
+)
+
+print("✓ Plant Disease CNN model loaded")
+print("✓ Plant disease class names loaded")
+print("✓ Disease treatment data loaded")
+
+# ============================================================
+# CNN LABEL → TREATMENT CSV MAPPING
+# ============================================================
+
+cnn_to_csv = {
+
+    "Chilli_Healthy": ("Chilli", "healthy"),
+    "Chilli_Leaf_Curl": ("Chilli", "leafcurl"),
+    "Chilli_Leaf_Spot": ("Chilli", "spotleaf"),
+    "Chilli_Whitefly": ("Chilli", "whitefly"),
+    "Chilli_Yellowish_Leaf": ("Chilli", "Yellowish Leaf"),
+
+    "Cotton_Healthy": ("Cotton", "Healthy"),
+    "Cotton_Bacterial_Blight": ("Cotton", "bacterial_blight"),
+    "Cotton_Curl_Virus": ("Cotton", "curl_virus"),
+    "Cotton_Fusarium_Wilt": ("Cotton", "fussarium_wilt"),
+
+    "Paddy_Healthy": ("Paddy", "health_paddy"),
+    "Paddy_Brownspot": ("Paddy", "Brownspot"),
+    "Paddy_Leafsmut": ("Paddy", "Leafsmut"),
+    "Paddy_Bacterial_Leaf": ("Paddy", "bacterial_leaf"),
+
+    "Sugarcane_Healthy": ("Sugarcane", "Healthy"),
+    "Sugarcane_Mosaic": ("Sugarcane", "Mosaic"),
+    "Sugarcane_Redrot": ("Sugarcane", "redrot"),
+    "Sugarcane_Rust": ("Sugarcane", "Rust"),
+
+    "Wheat_Healthy": ("Wheat", "Healthy"),
+    "Wheat_Brown_Rust": ("Wheat", "Brownrust"),
+    "Wheat_Septoria": ("Wheat", "septorial"),
+    "Wheat_Yellow_Rust": ("Wheat", "yellow")
+}
+
+print("✓ CNN to treatment mapping loaded")
+print("Total CNN mappings:", len(cnn_to_csv))
 
 # ============================================================
 # ROUTE 1 — MARKET WAGE
@@ -368,7 +328,164 @@ def predict_match():
             2
         )
     })
+# ============================================================
+# ROUTE 4 — PLANT DISEASE PREDICTION
+# ============================================================
 
+@app.route('/predict_disease', methods=['POST'])
+def predict_disease():
+
+    # --------------------------------------------------------
+    # 1. Check image upload
+    # --------------------------------------------------------
+
+    if 'image' not in request.files:
+        return jsonify({
+            'error': 'No image uploaded'
+        }), 400
+
+    file = request.files['image']
+
+    if file.filename == '':
+        return jsonify({
+            'error': 'No image selected'
+        }), 400
+
+    # --------------------------------------------------------
+    # 2. Read image
+    # --------------------------------------------------------
+
+    image_bytes = file.read()
+
+    image = tf.io.decode_image(
+        image_bytes,
+        channels=3,
+        expand_animations=False
+    )
+
+    # --------------------------------------------------------
+    # 3. Resize exactly like Colab
+    # --------------------------------------------------------
+
+    image = tf.image.resize(
+        image,
+        (224, 224)
+    )
+
+    # --------------------------------------------------------
+    # 4. Normalize exactly like Colab
+    # --------------------------------------------------------
+
+    image = image / 255.0
+
+    # --------------------------------------------------------
+    # 5. Add batch dimension
+    # --------------------------------------------------------
+
+    image = tf.expand_dims(
+        image,
+        axis=0
+    )
+
+    # --------------------------------------------------------
+    # 6. CNN prediction
+    # --------------------------------------------------------
+
+    predictions = plant_disease_model.predict(
+        image,
+        verbose=0
+    )
+
+    # --------------------------------------------------------
+    # 7. Get predicted class
+    # --------------------------------------------------------
+
+    predicted_index = int(
+        np.argmax(predictions[0])
+    )
+
+    predicted_label = class_names[
+        predicted_index
+    ]
+
+    # --------------------------------------------------------
+    # 8. Confidence
+    # --------------------------------------------------------
+
+    confidence = float(
+        predictions[0][predicted_index]
+    ) * 100
+
+    # --------------------------------------------------------
+    # 9. CNN label → CSV mapping
+    # --------------------------------------------------------
+
+    if predicted_label not in cnn_to_csv:
+
+        return jsonify({
+            'error': 'Predicted class not found in mapping',
+            'predicted_class': predicted_label
+        }), 500
+
+    crop, disease_class = cnn_to_csv[
+        predicted_label
+    ]
+
+    # --------------------------------------------------------
+    # 10. Find treatment information
+    # --------------------------------------------------------
+
+    result = treatment_df[
+        (treatment_df['Crop'] == crop) &
+        (treatment_df['Disease_Class'] == disease_class)
+    ]
+
+    # --------------------------------------------------------
+    # 11. Treatment information not found
+    # --------------------------------------------------------
+
+    if result.empty:
+
+        return jsonify({
+            'error': 'Treatment information not found',
+            'predicted_class': predicted_label,
+            'crop': crop,
+            'disease_class': disease_class
+        }), 404
+
+    # --------------------------------------------------------
+    # 12. Get matching CSV row
+    # --------------------------------------------------------
+
+    row = result.iloc[0]
+
+    # --------------------------------------------------------
+    # 13. Return final response
+    # --------------------------------------------------------
+
+    return jsonify({
+
+        'predicted_class': predicted_label,
+
+        'confidence': round(
+            confidence,
+            2
+        ),
+
+        'crop': row['Crop'],
+
+        'disease': row['Disease_Name'],
+
+        'symptoms': row['Symptoms'],
+
+        'precautions': row[
+            'Precautions_Management'
+        ],
+
+        'treatment_pesticide_information': row[
+            'Treatment_Pesticide_Information'
+        ]
+    })
 
 # ============================================================
 # HEALTH CHECK
@@ -399,4 +516,3 @@ if __name__ == '__main__':
         debug=True
     )
 
->>>>>>> a9d6c306323eabb686988c9188f0d307025652a9
