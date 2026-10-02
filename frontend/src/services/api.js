@@ -12,12 +12,16 @@ export const apiRequest = async (
 
   const config = {
     method,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    ...(body !== null && {
-      body: JSON.stringify(body),
-    }),
+    ...(body instanceof FormData
+      ? { body }
+      : {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          ...(body !== null && {
+            body: JSON.stringify(body),
+          }),
+        }),
   };
 
   try {
@@ -38,7 +42,7 @@ export const apiRequest = async (
     }
 
     if (!response.ok) {
-      throw new Error(data.message || "API request failed");
+      throw new Error(data.message || data.error || "API request failed");
     }
 
     return data;

@@ -1,10 +1,16 @@
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "../Languagecontext";
 import { apiRequest } from "../services/api";
 
-function WorkerProfile() {
+function WorkerProfile({
+  createWorker = false,
+  onWorkerCreated,
+  onProfileSaved
+}) {
   const navigate = useNavigate();
+  const { translate } = useLanguage();
 
   const [name, setName] = useState("");
   const [village, setVillage] = useState("");
@@ -16,12 +22,64 @@ function WorkerProfile() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const [mobile, setMobile] = useState("");
-const existingMobile = localStorage.getItem("harvesthub_phone") || "";
+  const [mobile, setMobile] = useState(() =>
+    createWorker ? "" : localStorage.getItem("harvesthub_phone") || ""
+  );
+  const existingMobile = localStorage.getItem("harvesthub_phone") || "";
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  useEffect(() => {
+    if (createWorker || !existingMobile) return undefined;
+    let cancelled = false;
+    setLoadingProfile(true);
+
+    apiRequest(`/users/worker/${encodeURIComponent(existingMobile)}`)
+      .then((response) => {
+        if (cancelled || !response?.profile) return;
+        const profile = response.profile;
+        setName(profile.name || "");
+        setVillage(profile.village || "");
+        setSkills(
+          Array.isArray(profile.skills)
+            ? profile.skills.join(", ")
+            : typeof profile.skills === "string"
+              ? (() => {
+                  try {
+                    const parsed = JSON.parse(profile.skills);
+                    return Array.isArray(parsed)
+                      ? parsed.join(", ")
+                      : profile.skills;
+                  } catch {
+                    return profile.skills;
+                  }
+                })()
+              : ""
+        );
+        setExperience(profile.experience_years ?? "");
+        setWage(profile.expected_daily_wage ?? "");
+        setLatitude(profile.latitude ?? null);
+        setLongitude(profile.longitude ?? null);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error("Worker profile load error:", error);
+          setMessage(
+            error.message || translate("Could not load worker profile.")
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingProfile(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [createWorker, existingMobile, translate]);
 
   const getLocation = () => {
     if (!navigator.geolocation) {
-      setMessage("Your browser does not support GPS.");
+      setMessage(translate("Your browser does not support GPS."));
       return;
     }
 
@@ -29,10 +87,10 @@ const existingMobile = localStorage.getItem("harvesthub_phone") || "";
       (position) => {
         setLatitude(position.coords.latitude);
         setLongitude(position.coords.longitude);
-        setMessage("Location captured successfully.");
+        setMessage(translate("Location captured successfully."));
       },
       () => {
-        setMessage("Please allow location access.");
+        setMessage(translate("Please allow location access."));
       }
     );
   };
@@ -42,46 +100,67 @@ const existingMobile = localStorage.getItem("harvesthub_phone") || "";
     setMessage("");
 
     if (!mobile) {
-      setMessage("Please login first.");
+      setMessage(translate("Please login first."));
       return;
     }
 
     if (latitude === null || longitude === null) {
-      setMessage("Please capture your location before submitting.");
+      setMessage(translate("Please capture your location before submitting."));
       return;
     }
 
     setLoading(true);
 
     try {
-const result = await apiRequest("/users/profile/update", "PUT", {
-  current_mobile: existingMobile,
-  mobile,
-  name,
-  role: "worker",
-  village,
-  skills: skills.split(",").map((skill) => skill.trim()).filter(Boolean),
-  experience_years: Number(experience) || 0,
-  expected_daily_wage: Number(wage),
-  latitude,
-  longitude
-});
+      const profileData = {
+        mobile,
+        name,
+        role: "worker",
+        village,
+        skills: skills.split(",").map((skill) => skill.trim()).filter(Boolean),
+        experience_years: Number(experience) || 0,
+        expected_daily_wage: Number(wage),
+        latitude,
+        longitude
+      };
+      const result = createWorker
+        ? await apiRequest("/users/register", "POST", profileData)
+        : await apiRequest("/users/profile/update", "PUT", {
+            ...profileData,
+            current_mobile: existingMobile
+          });
 
       if (result.success) {
-        setMessage("Worker profile saved successfully!");
-        localStorage.setItem("harvesthub_user_id", mobile);
+        setMessage(translate("Worker profile saved successfully!"));
 
-        setTimeout(() => {
-          navigate("/worker/dashboard");
-        }, 1000);
+        if (createWorker) {
+          onWorkerCreated?.({
+            id: result.userId,
+            mobile,
+            name,
+            village,
+            skills: profileData.skills,
+            experience_years: profileData.experience_years,
+            expected_daily_wage: profileData.expected_daily_wage
+          });
+        } else {
+          localStorage.setItem("harvesthub_user_id", mobile);
+          if (onProfileSaved) {
+            onProfileSaved(profileData);
+          } else {
+            setTimeout(() => {
+              navigate("/worker/dashboard");
+            }, 1000);
+          }
+        }
       } else {
-        setMessage(result.message || "Could not save profile.");
+        setMessage(result.message || translate("Could not save profile."));
       }
     } catch (error) {
   console.error("Worker profile save error:", error);
 
   setMessage(
-    error.message || "Unknown error occurred. Check browser console."
+    error.message || translate("Unknown error occurred. Check browser console.")
   );
 } finally {
   setLoading(false);
@@ -93,82 +172,98 @@ const result = await apiRequest("/users/profile/update", "PUT", {
       <div className="login-card">
         <div className="login-logo">🌾</div>
         <h1>HarvestHub</h1>
-        <h2>Worker Profile</h2>
+        <h2>
+          {translate(createWorker ? "Add New Worker" : "Worker Profile")}
+        </h2>
         <p className="login-subtitle">
-          Enter your details to find nearby agricultural jobs.
+          {translate(
+            createWorker
+              ? "Enter the new worker's details to add them to the dashboard."
+              : "Enter your details to find nearby agricultural jobs."
+          )}
         </p>
+
+        {loadingProfile && (
+          <p role="status">{translate("Loading worker profile...")}</p>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Full Name</label>
+            <label>{translate("Full Name")}</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your name"
+              placeholder={translate("Enter your name")}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Mobile Number</label>
+            <label>{translate("Mobile Number")}</label>
             <input
   type="tel"
   value={mobile}
-  onChange={(e) => setMobile(e.target.value)}
-  placeholder="Enter your mobile number"
+  onChange={(e) => {
+    const value = e.target.value;
+    if (/^\d{0,10}$/.test(value)) setMobile(value);
+  }}
+  placeholder={translate("Enter mobile number")}
+  inputMode="numeric"
+  pattern="[6-9][0-9]{9}"
   maxLength={10}
+  readOnly={!createWorker}
   required
 />
           </div>
 
           <div className="form-group">
-            <label>Village</label>
+            <label>{translate("Village")}</label>
             <input
               type="text"
               value={village}
               onChange={(e) => setVillage(e.target.value)}
-              placeholder="Enter your village"
+              placeholder={translate("Enter your village")}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Skills (comma separated)</label>
+            <label>{translate("Skills (comma separated)")}</label>
             <input
               type="text"
               value={skills}
               onChange={(e) => setSkills(e.target.value)}
-              placeholder="Harvesting, Sowing, Tractor Driving"
+              placeholder={translate("Harvesting, Sowing, Tractor Driving")}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Experience (years)</label>
+            <label>{translate("Experience (years)")}</label>
             <input
               type="number"
               min="0"
               value={experience}
               onChange={(e) => setExperience(e.target.value)}
-              placeholder="Enter experience"
+              placeholder={translate("Enter experience")}
             />
           </div>
 
           <div className="form-group">
-            <label>Expected Daily Wage (₹)</label>
+            <label>{translate("Expected Daily Wage (₹)")}</label>
             <input
               type="number"
               min="1"
               value={wage}
               onChange={(e) => setWage(e.target.value)}
-              placeholder="Enter expected wage"
+              placeholder={translate("Enter expected wage")}
               required
             />
           </div>
 
           <button type="button" onClick={getLocation}>
-            📍 Capture My Location
+            {translate("📍 Capture My Location")}
           </button>
 
           <p>{message}</p>
@@ -178,7 +273,9 @@ const result = await apiRequest("/users/profile/update", "PUT", {
             className="login-button"
             disabled={loading}
           >
-            {loading ? "Saving..." : "Save Worker Profile"}
+            {loading
+              ? translate("Saving...")
+              : translate(createWorker ? "Add Worker" : "Save Worker Profile")}
           </button>
         </form>
       </div>

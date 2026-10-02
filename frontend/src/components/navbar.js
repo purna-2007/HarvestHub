@@ -22,15 +22,15 @@ function Navbar() {
         {/* Desktop Navigation */}
         <div className="hh-nav-links">
           <Link to="/" className="hh-nav-link">
-            {language === "en" ? "Home" : "హోమ్"}
+            {t("home")}
           </Link>
 
           <a href="#how-it-works" className="hh-nav-link">
-            {language === "en" ? "How It Works" : "ఎలా పనిచేస్తుంది"}
+            {t("howItWorks")}
           </a>
 
           <a href="#work-categories" className="hh-nav-link">
-            {language === "en" ? "Work Categories" : "పని విభాగాలు"}
+            {t("workCategories")}
           </a>
         </div>
 

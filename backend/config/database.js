@@ -72,6 +72,22 @@ async function initializeDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     await connection.query(`
+      CREATE TABLE IF NOT EXISTS job_applications (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        job_id BIGINT UNSIGNED NOT NULL,
+        worker_id BIGINT UNSIGNED NOT NULL,
+        agreed_wage DECIMAL(10,2) NOT NULL,
+        status ENUM('pending','accepted','rejected','completed') NOT NULL DEFAULT 'pending',
+        applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        decided_at DATETIME NULL,
+        completed_at DATETIME NULL,
+        UNIQUE KEY one_application_per_worker_job (job_id, worker_id),
+        INDEX job_applications_worker_status_idx (worker_id, status),
+        CONSTRAINT application_job_fk FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
+        CONSTRAINT application_worker_fk FOREIGN KEY (worker_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS sync_actions (
         user_id BIGINT UNSIGNED NOT NULL,
         action_id VARCHAR(191) NOT NULL,

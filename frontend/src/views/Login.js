@@ -4,7 +4,7 @@ import { useLanguage } from "../Languagecontext";
 
 function Login({ role }) {
   const navigate = useNavigate();
-  const { language } = useLanguage();
+  const { translate = (text) => text } = useLanguage();
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const isFarmer = role === "farmer";
@@ -14,9 +14,7 @@ function Login({ role }) {
 
     const mobileNumber = phone.trim();
     if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
-      setError(language === "te"
-        ? "చెల్లుబాటు అయ్యే 10 అంకెల భారతీయ మొబైల్ నంబర్ నమోదు చేయండి"
-        : "Enter a valid 10-digit Indian mobile number");
+      setError(translate("Enter a valid 10-digit Indian mobile number"));
       return;
     }
 
@@ -32,17 +30,19 @@ function Login({ role }) {
 
         <h1>HarvestHub</h1>
 
-        <h2>{isFarmer ? "Farmer Login" : "Worker Login"}</h2>
+        <h2>{translate(isFarmer ? "Farmer Login" : "Worker Login")}</h2>
 
         <p className="login-subtitle">
-          {isFarmer
-            ? "Manage your farm and find workers"
-            : "Find agricultural jobs near you"}
+          {translate(
+            isFarmer
+              ? "Manage your farm and find workers"
+              : "Find agricultural jobs near you"
+          )}
         </p>
 
         <form onSubmit={handleLogin}>
           <div className="form-group">
-            <label htmlFor="login-phone">Mobile Number</label>
+            <label htmlFor="login-phone">{translate("Mobile Number")}</label>
             <input
               id="login-phone"
               type="tel"
@@ -50,8 +50,8 @@ function Login({ role }) {
               autoComplete="tel-national"
               maxLength={10}
               pattern="[6-9][0-9]{9}"
-              title="Enter a valid 10-digit Indian mobile number"
-              placeholder="Enter mobile number"
+              title={translate("Enter a valid 10-digit Indian mobile number")}
+              placeholder={translate("Enter mobile number")}
               value={phone}
               onChange={(e) => {
                 const value = e.target.value;
@@ -67,12 +67,12 @@ function Login({ role }) {
           {error && <p role="alert">{error}</p>}
 
           <button type="submit" className="login-button">
-            Login
+            {translate("Login")}
           </button>
         </form>
 
         <p className="login-demo">
-          Enter your 10-digit mobile number to continue. No OTP is required.
+          {translate("Enter your 10-digit mobile number to continue. No OTP is required.")}
         </p>
       </div>
     </div>

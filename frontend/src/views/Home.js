@@ -181,7 +181,7 @@ function Home() {
 
                 <img
                   src={category.image}
-                  alt={category.name}
+                  alt={isTelugu ? category.telugu : category.name}
                 />
 
                 <div className="hh-category-icon">
@@ -381,7 +381,8 @@ function Home() {
         </div>
 
         <div className="hh-footer-bottom">
-          © {new Date().getFullYear()} HarvestHub. Built for agriculture.
+          © {new Date().getFullYear()} HarvestHub.{" "}
+          {isTelugu ? "వ్యవసాయం కోసం రూపొందించబడింది." : "Built for agriculture."}
         </div>
 
       </footer>

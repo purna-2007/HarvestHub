@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "../Languagecontext";
 import socket from "../services/socket";
+import JobForm from "../components/jobform";
+import { apiRequest } from "../services/api";
+import { getUserCurrentLocation } from "../utils/geolocation";
 
 // Crop and skill names mirror the project datasets.
 const datasetWorkTypes = [
@@ -45,112 +49,25 @@ const cropData = {
   },
 };
 
-// DEMO WORKERS
-// Later replace this array with backend API data.
-const demoWorkers = [
-  {
-    id: 1,
-    name: "Ramesh Kumar",
-    age: 32,
-    gender: "Male",
-    location: "Kakinada",
-    district: "East Godavari",
-    skills: ["Cotton", "Paddy", "Seeding", "Irrigation Setup"],
-    experience: 8,
-    rating: 4.8,
-    wage: 450,
-    available: true,
-    phone: "9876543210",
-    avatar: "👨‍🌾",
-  },
-  {
-    id: 2,
-    name: "Suresh Naidu",
-    age: 28,
-    gender: "Male",
-    location: "Rajahmundry",
-    district: "East Godavari",
-    skills: ["Cotton", "Wheat", "Harvesting", "Pruning"],
-    experience: 5,
-    rating: 4.6,
-    wage: 480,
-    available: true,
-    phone: "9876543211",
-    avatar: "👨‍🌾",
-  },
-  {
-    id: 3,
-    name: "Lakshmi Devi",
-    age: 35,
-    gender: "Female",
-    location: "Samalkot",
-    district: "Kakinada",
-    skills: ["Paddy", "Chilli", "Pruning", "Seeding"],
-    experience: 10,
-    rating: 4.9,
-    wage: 400,
-    available: true,
-    phone: "9876543212",
-    avatar: "👩‍🌾",
-  },
-  {
-    id: 4,
-    name: "Ravi Teja",
-    age: 30,
-    gender: "Male",
-    location: "Peddapuram",
-    district: "Kakinada",
-    skills: ["Sugarcane", "Cotton", "Tractor Driving", "Seeding"],
-    experience: 6,
-    rating: 4.7,
-    wage: 500,
-    available: true,
-    phone: "9876543213",
-    avatar: "👨‍🌾",
-  },
-  {
-    id: 5,
-    name: "Anitha",
-    age: 27,
-    gender: "Female",
-    location: "Pithapuram",
-    district: "Kakinada",
-    skills: ["Paddy", "Wheat", "Harvesting", "Pesticide Spraying"],
-    experience: 4,
-    rating: 4.5,
-    wage: 420,
-    available: true,
-    phone: "9876543214",
-    avatar: "👩‍🌾",
-  },
-  {
-    id: 6,
-    name: "Venkat Rao",
-    age: 40,
-    gender: "Male",
-    location: "Kakinada",
-    district: "East Godavari",
-    skills: [
-      "Cotton",
-      "Chilli",
-      "Pesticide Spraying",
-      "Irrigation Setup",
-      "Harvesting",
-    ],
-    experience: 15,
-    rating: 4.9,
-    wage: 550,
-    available: true,
-    phone: "9876543215",
-    avatar: "👨‍🌾",
-  },
-];
+const parseWorkerSkills = (skills) => {
+  if (Array.isArray(skills)) return skills;
+  if (typeof skills !== "string") return [];
+
+  try {
+    const parsedSkills = JSON.parse(skills);
+    return Array.isArray(parsedSkills) ? parsedSkills : [];
+  } catch (error) {
+    console.error("Could not parse worker skills:", error);
+    return [];
+  }
+};
 
 const getHiringHistoryStorageKey = (phone) =>
   `harvesthub_hiring_history:${phone}`;
 
 function FarmerDashboard() {
   const navigate = useNavigate();
+  const { translate = (text) => text } = useLanguage();
 
   const [activeMenu, setActiveMenu] = useState("workers");
 
@@ -168,6 +85,19 @@ function FarmerDashboard() {
   const [selectedWorker, setSelectedWorker] = useState(null);
   const [hiredWorkers, setHiredWorkers] = useState([]);
   const [pendingHireWorkerId, setPendingHireWorkerId] = useState(null);
+  const [farmerJobs, setFarmerJobs] = useState([]);
+  const [applicationsByJob, setApplicationsByJob] = useState({});
+  const [loadingFarmerJobs, setLoadingFarmerJobs] = useState(false);
+  const [farmerJobsLoadError, setFarmerJobsLoadError] = useState("");
+  const [postingJob, setPostingJob] = useState(false);
+  const [pendingDecisionId, setPendingDecisionId] = useState(null);
+  const [jobFlowMessage, setJobFlowMessage] = useState("");
+  const [jobCrop, setJobCrop] = useState("");
+  const [jobAcres, setJobAcres] = useState("");
+  const [jobSkill, setJobSkill] = useState("");
+  const [jobDate, setJobDate] = useState("");
+  const [jobLocation, setJobLocation] = useState("");
+  const [jobWage, setJobWage] = useState("");
 
   const [hiringHistory, setHiringHistory] = useState(() => {
     const farmerPhone = localStorage.getItem("harvesthub_phone");
@@ -196,6 +126,141 @@ function FarmerDashboard() {
   // Farmer phone number
   const farmerPhone = localStorage.getItem("harvesthub_phone") || "";
 
+  const loadFarmerJobs = useCallback(async () => {
+    if (!farmerPhone) {
+      const message = translate(
+        "Please log in with the farmer mobile number before managing jobs."
+      );
+      setFarmerJobsLoadError(message);
+      setJobFlowMessage(message);
+      return;
+    }
+
+    setLoadingFarmerJobs(true);
+    setFarmerJobsLoadError("");
+    try {
+      const response = await apiRequest(
+        `/jobs/farmer/by-phone/${encodeURIComponent(farmerPhone)}`
+      );
+      if (!response?.success || !Array.isArray(response.jobs)) {
+        throw new Error(response?.message || translate("Could not load your jobs."));
+      }
+      setFarmerJobs(response.jobs);
+      const applicationEntries = await Promise.all(
+        response.jobs.map(async (job) => {
+          const applicationResponse = await apiRequest(
+            `/jobs/${job.id}/applications?farmer_phone=${encodeURIComponent(farmerPhone)}`
+          );
+          if (!applicationResponse?.success) {
+            throw new Error(
+              applicationResponse?.message ||
+                translate("Could not load job applications.")
+            );
+          }
+          return [String(job.id), applicationResponse.applications || []];
+        })
+      );
+      setApplicationsByJob(Object.fromEntries(applicationEntries));
+    } catch (error) {
+      console.error("Could not load farmer jobs:", error);
+      const message = translate(error.message || "Could not load your jobs.");
+      setFarmerJobsLoadError(message);
+      setJobFlowMessage(message);
+    } finally {
+      setLoadingFarmerJobs(false);
+    }
+  }, [farmerPhone, translate]);
+
+  useEffect(() => {
+    if (activeMenu === "jobs" || activeMenu === "notifications") {
+      loadFarmerJobs();
+    }
+  }, [activeMenu, loadFarmerJobs]);
+
+  const handleCreateJob = async (event) => {
+    event.preventDefault();
+    setJobFlowMessage("");
+    if (!farmerPhone) {
+      setJobFlowMessage(
+        translate("Please log in with the farmer mobile number before managing jobs.")
+      );
+      return;
+    }
+    if (!jobCrop || !jobSkill || !jobDate || !jobLocation || !jobWage) {
+      setJobFlowMessage(translate("Please complete all required fields."));
+      return;
+    }
+
+    setPostingJob(true);
+    try {
+      const coordinates = await getUserCurrentLocation();
+      const cropDetails = cropData[jobCrop];
+      const response = await apiRequest("/jobs/create", "POST", {
+        farmer_phone: farmerPhone,
+        title: `${cropDetails.name} - ${jobSkill}`,
+        description: `${jobAcres || 1} acres`,
+        crop_type: cropDetails.name,
+        required_skill: jobSkill,
+        workers_needed: Math.max(
+          1,
+          Math.ceil(Number(jobAcres || 1) * cropDetails.workersPerAcre)
+        ),
+        daily_wage: Number(jobWage),
+        start_date: jobDate,
+        location_name: jobLocation,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude
+      });
+      if (!response?.success) {
+        throw new Error(response?.message || translate("Could not post the job."));
+      }
+      setJobFlowMessage(translate("Job posted successfully."));
+      setJobCrop("");
+      setJobAcres("");
+      setJobSkill("");
+      setJobDate("");
+      setJobLocation("");
+      setJobWage("");
+      await loadFarmerJobs();
+    } catch (error) {
+      console.error("Could not post farmer job:", error);
+      setJobFlowMessage(
+        translate(
+          error.message ||
+            "Could not post the job. Please enable location and try again."
+        )
+      );
+    } finally {
+      setPostingJob(false);
+    }
+  };
+
+  const handleApplicationDecision = async (job, application, decision) => {
+    setPendingDecisionId(application.application_id);
+    setJobFlowMessage("");
+    try {
+      const response = await apiRequest(
+        `/jobs/${job.id}/applications/${application.application_id}/decision`,
+        "POST",
+        { farmer_phone: farmerPhone, decision }
+      );
+      if (!response?.success) {
+        throw new Error(response?.message || translate("Could not update this application."));
+      }
+      setJobFlowMessage(
+        translate(decision === "accept" ? "Worker application accepted." : "Worker application rejected.")
+      );
+      await loadFarmerJobs();
+    } catch (error) {
+      console.error("Could not decide worker application:", error);
+      setJobFlowMessage(
+        translate(error.message || "Could not update this application.")
+      );
+    } finally {
+      setPendingDecisionId(null);
+    }
+  };
+
   // Update Hiring History when worker accepts a job
   const updateHiringHistory = useCallback(
     (acceptedJob) => {
@@ -222,13 +287,12 @@ function FarmerDashboard() {
           acceptedJob.cropType ||
           "";
 
-        const existingIndex = previous.findIndex(
-          (entry) =>
-            (jobId &&
-              String(entry.jobId || entry.id) === String(jobId)) ||
-            (workerPhone &&
+        const existingIndex = previous.findIndex((entry) =>
+          jobId
+            ? String(entry.jobId || entry.id) === String(jobId)
+            : workerPhone &&
               entry.workerPhone === workerPhone &&
-              entry.cropType === cropType)
+              entry.cropType === cropType
         );
 
         const acceptedEntry = {
@@ -245,7 +309,45 @@ function FarmerDashboard() {
           jobId: jobId || undefined,
           workerName,
           workerPhone,
+          workerId:
+            acceptedJob.worker_id ||
+            acceptedJob.workerId ||
+            (existingIndex >= 0
+              ? previous[existingIndex].workerId
+              : undefined),
+          workerVillage:
+            acceptedJob.worker_village ||
+            acceptedJob.workerVillage ||
+            (existingIndex >= 0
+              ? previous[existingIndex].workerVillage
+              : ""),
+          workerSkills:
+            acceptedJob.worker_skills ||
+            acceptedJob.workerSkills ||
+            (existingIndex >= 0
+              ? previous[existingIndex].workerSkills
+              : []),
+          workerExperience:
+            acceptedJob.worker_experience_years ??
+            acceptedJob.workerExperience ??
+            (existingIndex >= 0
+              ? previous[existingIndex].workerExperience
+              : undefined),
+          jobTitle:
+            acceptedJob.job_title ||
+            acceptedJob.jobTitle ||
+            acceptedJob.title ||
+            (existingIndex >= 0
+              ? previous[existingIndex].jobTitle
+              : ""),
           cropType,
+          dailyWage:
+            acceptedJob.daily_wage ||
+            acceptedJob.final_wage ||
+            acceptedJob.job?.final_wage ||
+            (existingIndex >= 0
+              ? previous[existingIndex].dailyWage
+              : undefined),
 
           requiredSkill:
             acceptedJob.required_skill ||
@@ -296,25 +398,118 @@ function FarmerDashboard() {
 
     const handleWorkerAccepted = (data = {}) => {
       updateHiringHistory(data);
+      loadFarmerJobs();
 
       alert(
-        data.message ||
-          `${data.worker_name || "A worker"} accepted your job.`
+        translate(data.message) ||
+          `${data.worker_name || translate("A worker")} ${translate("accepted your job.")}`
       );
     };
 
+    const handleJobApplication = (application = {}) => {
+      const workerName = application.worker_name || translate("A worker");
+      setJobFlowMessage(
+        `${workerName} ${translate("applied for one of your jobs.")}`
+      );
+      return loadFarmerJobs();
+    };
+
+    const handleJobCompleted = () => {
+      loadFarmerJobs();
+      setJobFlowMessage(translate("A worker marked the job as completed."));
+    };
+
     socket.on("notify_farmer", handleWorkerAccepted);
+    socket.on("job_application", handleJobApplication);
+    socket.on("job_completed", handleJobCompleted);
 
     return () => {
       socket.off("notify_farmer", handleWorkerAccepted);
+      socket.off("job_application", handleJobApplication);
+      socket.off("job_completed", handleJobCompleted);
 
       socket.emit("unregister_farmer", {
         farmer_phone: farmerPhone,
       });
     };
-  }, [farmerPhone, updateHiringHistory]);
+  }, [activeMenu, farmerPhone, loadFarmerJobs, translate, updateHiringHistory]);
 
   const selectedCrop = cropData[crop];
+  const acceptedWorkersByJob = new Map();
+  hiringHistory
+    .filter(
+      (entry) =>
+        entry.smsStatus === "accepted" ||
+        String(entry.status || "").toLowerCase() === "accepted"
+    )
+    .forEach((entry, index) => {
+      acceptedWorkersByJob.set(
+        String(entry.jobId || entry.id || entry.workerPhone || index),
+        entry
+      );
+    });
+  const acceptedJobs = farmerJobs
+    .filter(
+      (job) =>
+        ["accepted", "closed"].includes(String(job.status || "").toLowerCase()) &&
+        job.worker_name
+    )
+    .map((job) => ({
+      id: job.id,
+      jobId: job.id,
+      workerName: job.worker_name,
+      workerPhone: job.worker_phone,
+      workerId: job.accepted_worker_id,
+      workerVillage: job.worker_village,
+      workerSkills: parseWorkerSkills(job.worker_skills),
+      workerExperience: job.worker_experience_years,
+      jobTitle: job.title,
+      cropType: job.crop_type,
+      requiredSkill: job.required_skill,
+      dailyWage: job.daily_wage,
+      requestedAt: job.accepted_at || job.created_at,
+      status: "Accepted"
+    }));
+  const acceptedApplications = farmerJobs.flatMap((job) =>
+    (applicationsByJob[String(job.id)] || [])
+      .filter((application) =>
+        ["accepted", "completed"].includes(
+          String(application.status || "").toLowerCase()
+        )
+      )
+      .map((application) => ({
+        id: application.application_id,
+        jobId: job.id,
+        workerName: application.worker_name,
+        workerPhone: application.worker_phone,
+        workerId: application.worker_id,
+        workerVillage: application.worker_village,
+        workerSkills: parseWorkerSkills(application.worker_skills),
+        workerExperience: application.worker_experience_years,
+        jobTitle: job.title,
+        cropType: job.crop_type,
+        requiredSkill: job.required_skill,
+        dailyWage: application.agreed_wage,
+        requestedAt:
+          application.decided_at || job.accepted_at || application.applied_at,
+        status: "Accepted"
+      }))
+  );
+  [...acceptedJobs, ...acceptedApplications].forEach((entry) => {
+    acceptedWorkersByJob.set(String(entry.jobId), entry);
+  });
+  const acceptedWorkers = Array.from(acceptedWorkersByJob.values());
+  const pendingWorkerApplications = farmerJobs.flatMap((job) =>
+    (applicationsByJob[String(job.id)] || [])
+      .filter(
+        (application) =>
+          String(application.status || "").toLowerCase() === "pending" &&
+          String(job.status || "").toLowerCase() === "open"
+      )
+      .map((application) => ({ ...application, job }))
+  );
+  const notificationCount =
+    acceptedWorkers.length + pendingWorkerApplications.length;
 
   const workersRequired =
     selectedCrop && acres
@@ -332,7 +527,7 @@ function FarmerDashboard() {
   };
 
   // Find workers
-  const handleFindWorkers = (e) => {
+  const handleFindWorkers = async (e) => {
     e.preventDefault();
 
     if (
@@ -343,36 +538,73 @@ function FarmerDashboard() {
       !workDate ||
       !location
     ) {
-      alert("Please complete all required fields.");
+      alert(translate("Please complete all required fields."));
       return;
     }
 
-    // Temporary frontend demo matching
-    const results = demoWorkers.filter((worker) => {
-      const hasCrop = worker.skills.some(
-        (skill) =>
-          skill.toLowerCase() === crop.toLowerCase()
+    if (!farmerPhone) {
+      alert(translate("Please log in with the farmer mobile number before managing jobs."));
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams({
+        skill: workType,
+        location: location.trim(),
+      });
+      if (wage) params.set("max_daily_wage", wage);
+      const response = await apiRequest(
+        `/users/workers/search?${params.toString()}`
       );
+      if (!response?.success || !Array.isArray(response.workers)) {
+        throw new Error(response?.message || translate("Could not load available workers."));
+      }
 
-      const hasWork = worker.skills.some(
-        (skill) =>
-          skill.toLowerCase() === workType.toLowerCase()
-      );
+      const workersById = new Map();
+      response.workers.forEach((profile) => {
+        const workerId = profile.id || profile.mobile;
+        if (!workerId || workersById.has(String(workerId))) return;
 
-      return worker.available && hasCrop && hasWork;
-    });
-
-    setMatchedWorkers(results);
-    setSearchPerformed(true);
-
-    setTimeout(() => {
-      document
-        .getElementById("worker-results")
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
+        workersById.set(String(workerId), {
+          id: workerId,
+          name: profile.name,
+          age: "—",
+          gender: "",
+          location: profile.village || "—",
+          district: Number.isFinite(Number(profile.distance_km))
+            ? `${Number(profile.distance_km).toFixed(1)} km away`
+            : "",
+          skills: parseWorkerSkills(profile.skills),
+          experience: Number(profile.experience_years) || 0,
+          rating: "—",
+          wage: Number(profile.expected_daily_wage) || 0,
+          skillMatchScore:
+            profile.skill_match_score == null
+              ? null
+              : Number(profile.skill_match_score),
+          available: true,
+          phone: profile.mobile,
+          avatar: "👨‍🌾",
         });
-    }, 100);
+      });
+
+      setMatchedWorkers(Array.from(workersById.values()));
+      setSearchPerformed(true);
+
+      setTimeout(() => {
+        document
+          .getElementById("worker-results")
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+      }, 100);
+    } catch (error) {
+      console.error("Could not find available workers:", error);
+      setMatchedWorkers([]);
+      setSearchPerformed(true);
+      alert(translate(error.message || "Could not load available workers."));
+    }
   };
 
   // Hire worker
@@ -382,7 +614,7 @@ function FarmerDashboard() {
         (item) => item.id === worker.id
       )
     ) {
-      alert(`${worker.name} is already selected.`);
+      alert(`${worker.name} ${translate("is already selected.")}`);
       return false;
     }
 
@@ -393,7 +625,7 @@ function FarmerDashboard() {
 
     if (!farmerPhone) {
       alert(
-        "Please log in with the farmer mobile number before hiring a worker."
+        translate("Please log in with the farmer mobile number before hiring a worker.")
       );
       return false;
     }
@@ -445,7 +677,7 @@ function FarmerDashboard() {
         if (timeoutError || !result?.success) {
           const message =
             result?.message ||
-            "No response from the backend. Check that the backend is running and try again.";
+            translate("No response from the backend. Check that the backend is running and try again.");
 
           saveHistoryEntry("failed", message);
           alert(message);
@@ -459,11 +691,11 @@ function FarmerDashboard() {
 
         saveHistoryEntry(
           "sent",
-          result.message || "SMS sent."
+          result.message || translate("SMS sent.")
         );
 
         alert(
-          `${worker.name} selected. SMS sent with your contact number.`
+          `${worker.name} ${translate("selected. SMS sent with your contact number.")}`
         );
       }
     );
@@ -496,7 +728,7 @@ function FarmerDashboard() {
 
           <div>
             <h2>HarvestHub</h2>
-            <span>Farmer Portal</span>
+            <span>{translate("Farmer Portal")}</span>
           </div>
         </div>
 
@@ -504,8 +736,8 @@ function FarmerDashboard() {
           <div className="profile-avatar">👨‍🌾</div>
 
           <div>
-            <strong>Farmer</strong>
-            <span>Farm Owner</span>
+            <strong>{translate("Farmer")}</strong>
+            <span>{translate("Farm Owner")}</span>
           </div>
         </div>
 
@@ -521,8 +753,8 @@ function FarmerDashboard() {
             <span>👥</span>
 
             <div>
-              <strong>Find Workers</strong>
-              <small>Hire farm workers</small>
+              <strong>{translate("Find Workers")}</strong>
+              <small>{translate("Hire farm workers")}</small>
             </div>
           </button>
 
@@ -539,8 +771,8 @@ function FarmerDashboard() {
             <span>🗂️</span>
 
             <div>
-              <strong>Hiring History</strong>
-              <small>View worker selections</small>
+              <strong>{translate("Hiring History")}</strong>
+              <small>{translate("View worker selections")}</small>
             </div>
           </button>
 
@@ -553,8 +785,8 @@ function FarmerDashboard() {
             <span>🌿</span>
 
             <div>
-              <strong>Disease Detection</strong>
-              <small>Check crop health</small>
+              <strong>{translate("Disease Detection")}</strong>
+              <small>{translate("Check crop health")}</small>
             </div>
           </button>
 
@@ -569,13 +801,17 @@ function FarmerDashboard() {
             <span>📋</span>
 
             <div>
-              <strong>My Jobs</strong>
-              <small>Manage your jobs</small>
+              <strong>{translate("My Jobs")}</strong>
+              <small>{translate("Manage your jobs")}</small>
             </div>
           </button>
 
           <button
-            className="sidebar-item"
+            className={
+              activeMenu === "notifications"
+                ? "sidebar-item active"
+                : "sidebar-item"
+            }
             onClick={() =>
               setActiveMenu("notifications")
             }
@@ -583,13 +819,15 @@ function FarmerDashboard() {
             <span>🔔</span>
 
             <div>
-              <strong>Notifications</strong>
-              <small>Latest updates</small>
+              <strong>{translate("Notifications")}</strong>
+              <small>{translate("Latest updates")}</small>
             </div>
 
-            <span className="notification-badge">
-              3
-            </span>
+            {notificationCount > 0 && (
+              <span className="notification-badge">
+                {notificationCount}
+              </span>
+            )}
           </button>
         </nav>
 
@@ -598,8 +836,8 @@ function FarmerDashboard() {
             <span>⚙️</span>
 
             <div>
-              <strong>Settings</strong>
-              <small>Account settings</small>
+              <strong>{translate("Settings")}</strong>
+              <small>{translate("Account settings")}</small>
             </div>
           </button>
 
@@ -610,8 +848,8 @@ function FarmerDashboard() {
             <span>🚪</span>
 
             <div>
-              <strong>Logout</strong>
-              <small>Sign out</small>
+              <strong>{translate("Logout")}</strong>
+              <small>{translate("Sign out")}</small>
             </div>
           </button>
         </div>
@@ -622,21 +860,26 @@ function FarmerDashboard() {
         <header className="farmer-header">
           <div>
             <p className="welcome-text">
-              Welcome back 👋
+              {translate("Welcome back 👋")}
             </p>
 
-            <h1>Farmer Dashboard</h1>
+            <h1>{translate("Farmer Dashboard")}</h1>
 
             <p className="header-description">
-              Find the right workers for your farm
-              quickly and easily.
+              {translate("Find the right workers for your farm quickly and easily.")}
             </p>
           </div>
 
           <div className="header-actions">
-            <button className="notification-button">
+            <button
+              className="notification-button"
+              aria-label={translate("Notifications")}
+              onClick={() => setActiveMenu("notifications")}
+            >
               🔔
-              <span>3</span>
+              {notificationCount > 0 && (
+                <span>{notificationCount}</span>
+              )}
             </button>
 
             <div className="header-profile">
@@ -645,8 +888,8 @@ function FarmerDashboard() {
               </div>
 
               <div>
-                <strong>Farmer</strong>
-                <small>Farm Owner</small>
+                <strong>{translate("Farmer")}</strong>
+                <small>{translate("Farm Owner")}</small>
               </div>
             </div>
           </div>
@@ -660,9 +903,9 @@ function FarmerDashboard() {
             </div>
 
             <div>
-              <span>Available Workers</span>
+              <span>{translate("Available Workers")}</span>
               <strong>128</strong>
-              <small>Demo statistics</small>
+              <small>{translate("Demo statistics")}</small>
             </div>
           </div>
 
@@ -672,9 +915,9 @@ function FarmerDashboard() {
             </div>
 
             <div>
-              <span>Active Jobs</span>
+              <span>{translate("Active Jobs")}</span>
               <strong>4</strong>
-              <small>Currently running</small>
+              <small>{translate("Currently running")}</small>
             </div>
           </div>
 
@@ -684,9 +927,9 @@ function FarmerDashboard() {
             </div>
 
             <div>
-              <span>Completed Jobs</span>
+              <span>{translate("Completed Jobs")}</span>
               <strong>23</strong>
-              <small>This season</small>
+              <small>{translate("This season")}</small>
             </div>
           </div>
 
@@ -696,26 +939,394 @@ function FarmerDashboard() {
             </div>
 
             <div>
-              <span>Worker Rating</span>
+              <span>{translate("Worker Rating")}</span>
               <strong>4.8</strong>
-              <small>Average rating</small>
+              <small>{translate("Average rating")}</small>
             </div>
           </div>
         </section>
+
+        {activeMenu === "jobs" && (
+          <section className="dashboard-card">
+            <div className="card-heading">
+              <div>
+                <h2>{translate("My Jobs")}</h2>
+                <p>{translate("Post jobs and review worker applications.")}</p>
+              </div>
+              <div className="heading-icon">📋</div>
+            </div>
+
+            <form onSubmit={handleCreateJob}>
+              <div className="form-grid">
+                <div className="dashboard-field">
+                  <label>{translate("Crop Type")} <span>*</span></label>
+                  <select
+                    value={jobCrop}
+                    onChange={(event) => {
+                      setJobCrop(event.target.value);
+                      setJobSkill("");
+                    }}
+                    required
+                  >
+                    <option value="">{translate("Select crop")}</option>
+                    {Object.entries(cropData).map(([key, item]) => (
+                      <option value={key} key={key}>
+                        {item.icon} {translate(item.name)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="dashboard-field">
+                  <label>{translate("Work Type")} <span>*</span></label>
+                  <select
+                    value={jobSkill}
+                    onChange={(event) => setJobSkill(event.target.value)}
+                    disabled={!jobCrop}
+                    required
+                  >
+                    <option value="">{translate("Select work type")}</option>
+                    {cropData[jobCrop]?.workTypes.map((skill) => (
+                      <option key={skill} value={skill}>{translate(skill)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="dashboard-field">
+                  <label>{translate("Land Area")} <span>*</span></label>
+                  <input
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    value={jobAcres}
+                    onChange={(event) => setJobAcres(event.target.value)}
+                    placeholder={translate("Enter acres")}
+                    required
+                  />
+                </div>
+                <div className="dashboard-field">
+                  <label>{translate("Work Date")} <span>*</span></label>
+                  <input
+                    type="date"
+                    min={new Date().toISOString().split("T")[0]}
+                    value={jobDate}
+                    onChange={(event) => setJobDate(event.target.value)}
+                    required
+                  />
+                </div>
+                <div className="dashboard-field">
+                  <label>{translate("Work Location")} <span>*</span></label>
+                  <input
+                    value={jobLocation}
+                    onChange={(event) => setJobLocation(event.target.value)}
+                    placeholder={translate("Enter village / area")}
+                    required
+                  />
+                </div>
+                <div className="dashboard-field">
+                  <label>{translate("Daily Wage")} (₹) <span>*</span></label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={jobWage}
+                    onChange={(event) => setJobWage(event.target.value)}
+                    placeholder={translate("e.g. 500")}
+                    required
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={postingJob}
+              >
+                {postingJob
+                  ? translate("Posting job...")
+                  : translate("Post a Job")}
+              </button>
+            </form>
+
+            {jobFlowMessage && (
+              <p role="status" style={{ marginTop: 14 }}>
+                {jobFlowMessage}
+              </p>
+            )}
+
+            <h3 style={{ marginTop: 28 }}>{translate("Posted Jobs")}</h3>
+            {loadingFarmerJobs ? (
+              <p role="status">{translate("Loading your jobs...")}</p>
+            ) : farmerJobs.length === 0 ? (
+              <p role="status">{translate("You have not posted any jobs yet.")}</p>
+            ) : (
+              <div className="worker-cards-grid">
+                {farmerJobs.map((job) => {
+                  const jobApplications = applicationsByJob[String(job.id)] || [];
+                  return (
+                    <article className="worker-profile-card" key={job.id}>
+                      <div className="worker-card-top">
+                        <div>
+                          <h3>{translate(job.title)}</h3>
+                          <p className="worker-location">
+                            {translate(job.crop_type)} · {translate(job.required_skill)}
+                          </p>
+                        </div>
+                        <span className="worker-available">
+                          {translate(job.status)}
+                        </span>
+                      </div>
+                      <p>
+                        <strong>{translate("Daily Wage")}:</strong>{" "}
+                        ₹{job.daily_wage} / {translate("per day")}
+                      </p>
+                      <p>
+                        <strong>{translate("Work Location")}:</strong>{" "}
+                        {job.location_name}
+                      </p>
+                      <p>
+                        {translate("Workers needed")}: {job.workers_needed}
+                      </p>
+                      <h4>{translate("Applications")} ({jobApplications.length})</h4>
+                      {jobApplications.length === 0 ? (
+                        <p>{translate("No workers have applied yet.")}</p>
+                      ) : (
+                        jobApplications.map((application) => {
+                          const isPending = application.status === "pending";
+                          const isWorking =
+                            String(pendingDecisionId) ===
+                            String(application.application_id);
+                          return (
+                            <div
+                              key={application.application_id}
+                              style={{
+                                borderTop: "1px solid #e5e7eb",
+                                padding: "12px 0"
+                              }}
+                            >
+                              <strong>{application.worker_name}</strong>
+                              {application.worker_phone && (
+                                <p>
+                                  <a href={`tel:${application.worker_phone}`}>
+                                    {application.worker_phone}
+                                  </a>
+                                </p>
+                              )}
+                              {application.worker_village && (
+                                <p>{translate("Village")}: {application.worker_village}</p>
+                              )}
+                              <p>
+                                {translate("Status:")}{" "}
+                                {translate(application.status)}
+                              </p>
+                              {isPending && job.status === "open" && (
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  <button
+                                    type="button"
+                                    className="primary-button"
+                                    disabled={isWorking}
+                                    onClick={() =>
+                                      handleApplicationDecision(job, application, "accept")
+                                    }
+                                  >
+                                    {translate("Accept")}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="secondary-button"
+                                    disabled={isWorking}
+                                    onClick={() =>
+                                      handleApplicationDecision(job, application, "reject")
+                                    }
+                                  >
+                                    {translate("Reject")}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeMenu === "notifications" && (
+          <section
+            className="dashboard-card"
+            aria-label={translate("Notifications")}
+          >
+            <div className="card-heading">
+              <div>
+                <h2>{translate("Notifications")}</h2>
+                <p>{translate("Worker applications and accepted jobs")}</p>
+              </div>
+              <div className="heading-icon">🔔</div>
+            </div>
+
+            {farmerJobsLoadError && (
+              <p role="alert">{farmerJobsLoadError}</p>
+            )}
+
+            {pendingWorkerApplications.length > 0 && (
+              <>
+                <h3>{translate("New worker applications")}</h3>
+                <div className="worker-cards-grid">
+                  {pendingWorkerApplications.map((application) => (
+                    <article
+                      className="worker-profile-card"
+                      key={application.application_id}
+                    >
+                      <div className="worker-card-top">
+                        <div className="worker-avatar">👷</div>
+                        <span className="worker-available">
+                          {translate("Application pending")}
+                        </span>
+                      </div>
+                      <h3>{application.worker_name || translate("Worker")}</h3>
+                      <p>
+                        <strong>{translate("Job title")}:</strong>{" "}
+                        {translate(application.job.title)}
+                      </p>
+                      <p>
+                        <strong>{translate("Work Location")}:</strong>{" "}
+                        {application.job.location_name}
+                      </p>
+                      {application.worker_village && (
+                        <p className="worker-location">
+                          📍 {translate("Village")}: {application.worker_village}
+                        </p>
+                      )}
+                      {application.worker_phone && (
+                        <p>
+                          {translate("Worker phone")}:{" "}
+                          <a href={`tel:${application.worker_phone}`}>
+                            {application.worker_phone}
+                          </a>
+                        </p>
+                      )}
+                      <p>
+                        <strong>{translate("Agreed daily wage")}:</strong>{" "}
+                        ₹{application.agreed_wage} / {translate("per day")}
+                      </p>
+                      <button
+                        type="button"
+                        className="primary-button"
+                        onClick={() => setActiveMenu("jobs")}
+                      >
+                        {translate("Review in My Jobs")}
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {acceptedWorkers.length > 0 && (
+              <>
+                <h3>{translate("Workers accepted")}</h3>
+                <div className="worker-cards-grid">
+                  {acceptedWorkers.map((worker) => (
+                    <article
+                      className="worker-profile-card"
+                      key={worker.jobId || worker.id}
+                    >
+                      <div className="worker-card-top">
+                        <div className="worker-avatar">👷</div>
+                        <span className="worker-available">
+                          ✓ {translate("Job accepted")}
+                        </span>
+                      </div>
+
+                      <h3>{worker.workerName || translate("Worker")}</h3>
+                      <p className="worker-location">
+                        {translate("Worker profile")}
+                        {worker.workerId ? ` · #${worker.workerId}` : ""}
+                      </p>
+
+                      {worker.workerPhone && (
+                        <p>
+                          {translate("Worker phone:")}{" "}
+                          <a href={`tel:${worker.workerPhone}`}>
+                            {worker.workerPhone}
+                          </a>
+                        </p>
+                      )}
+                      {worker.workerVillage && (
+                        <p className="worker-location">
+                          📍 {translate("Village")}: {worker.workerVillage}
+                        </p>
+                      )}
+                      {worker.workerExperience !== undefined && (
+                        <p>
+                          <strong>{translate("Experience")}:</strong>{" "}
+                          {worker.workerExperience} {translate("years experience")}
+                        </p>
+                      )}
+                      {Array.isArray(worker.workerSkills) &&
+                        worker.workerSkills.length > 0 && (
+                          <div className="worker-skills">
+                            {worker.workerSkills.map((skill) => (
+                              <span key={skill}>{translate(skill)}</span>
+                            ))}
+                          </div>
+                        )}
+
+                      <p>
+                        <strong>{translate("Accepted job")}:</strong>{" "}
+                        {worker.jobTitle || worker.cropType}
+                      </p>
+                      {worker.jobTitle && worker.cropType && (
+                        <p className="worker-location">{worker.cropType}</p>
+                      )}
+                      {worker.requiredSkill && (
+                        <p>
+                          <strong>{translate("Work Type")}:</strong>{" "}
+                          {translate(worker.requiredSkill)}
+                        </p>
+                      )}
+                      {worker.dailyWage && (
+                        <p>
+                          <strong>{translate("Agreed daily wage")}:</strong>{" "}
+                          ₹{worker.dailyWage} / {translate("per day")}
+                        </p>
+                      )}
+                      <p>
+                        {translate("Selected:")}{" "}
+                        {new Date(worker.requestedAt).toLocaleString(
+                          localStorage.getItem("harvesthub_language") === "te"
+                            ? "te-IN"
+                            : "en-IN"
+                        )}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {notificationCount === 0 &&
+              !loadingFarmerJobs &&
+              !farmerJobsLoadError && (
+              <p role="status">
+                {translate("No worker applications or accepted jobs yet.")}
+              </p>
+            )}
+          </section>
+        )}
 
         {/* HIRING HISTORY */}
         {activeMenu === "hiring-history" && (
           <section
             className="dashboard-card"
-            aria-label="Hiring history"
+            aria-label={translate("Hiring history")}
           >
             <div className="card-heading">
               <div>
-                <h2>Hiring History</h2>
+                <h2>{translate("Hiring History")}</h2>
 
                 <p>
-                  Worker selections and SMS delivery
-                  status for this account.
+                  {translate("Worker selections and SMS delivery status for this account.")}
                 </p>
               </div>
 
@@ -726,7 +1337,7 @@ function FarmerDashboard() {
 
             {hiringHistory.length === 0 ? (
               <p role="status">
-                No worker selections yet.
+                {translate("No worker selections yet.")}
               </p>
             ) : (
               <div className="worker-cards-grid">
@@ -743,7 +1354,7 @@ function FarmerDashboard() {
                     </p>
 
                     <p>
-                      Worker phone:{" "}
+                      {translate("Worker phone:")}{" "}
                       <a
                         href={`tel:${entry.workerPhone}`}
                       >
@@ -752,26 +1363,30 @@ function FarmerDashboard() {
                     </p>
 
                     <p>
-                      Selected:{" "}
+                      {translate("Selected:")}{" "}
                       {new Date(
                         entry.requestedAt
-                      ).toLocaleString()}
+                      ).toLocaleString(
+                        localStorage.getItem("harvesthub_language") === "te"
+                          ? "te-IN"
+                          : "en-IN"
+                      )}
                     </p>
 
                     <p role="status">
-                      Status:{" "}
-                      {entry.status ||
+                      {translate("Status:")}{" "}
+                      {translate(entry.status) ||
                         (entry.smsStatus === "sent"
-                          ? "SMS Sent"
+                          ? translate("SMS Sent")
                           : entry.smsStatus === "accepted"
-                            ? "Accepted"
-                            : "Not sent")}
+                            ? translate("Accepted")
+                            : translate("Not sent"))}
                     </p>
 
                     {entry.smsStatus !== "sent" &&
                       entry.smsStatus !== "accepted" && (
                         <p role="alert">
-                          {entry.smsMessage}
+                          {translate(entry.smsMessage)}
                         </p>
                       )}
                   </article>
@@ -783,214 +1398,26 @@ function FarmerDashboard() {
 
         {/* WORKER SEARCH FORM */}
         {activeMenu === "workers" && (
-          <section className="dashboard-card">
-            <div className="card-heading">
-              <div>
-                <h2>Find Agricultural Workers</h2>
-
-                <p>
-                  Enter your farm details to find
-                  suitable workers.
-                </p>
-              </div>
-
-              <div className="heading-icon">
-                👥
-              </div>
-            </div>
-
-            <form onSubmit={handleFindWorkers}>
-              <div className="form-section-title">
-                🌱 Farm Information
-              </div>
-
-              <div className="form-grid">
-                <div className="dashboard-field">
-                  <label>
-                    Crop Type <span>*</span>
-                  </label>
-
-                  <select
-                    value={crop}
-                    onChange={handleCropChange}
-                  >
-                    <option value="">
-                      Select crop
-                    </option>
-
-                    {Object.entries(cropData).map(
-                      ([key, item]) => (
-                        <option
-                          value={key}
-                          key={key}
-                        >
-                          {item.icon} {item.name}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
-
-                <div className="dashboard-field">
-                  <label>
-                    Land Area <span>*</span>
-                  </label>
-
-                  <div className="input-with-unit">
-                    <input
-                      type="number"
-                      min="0.1"
-                      step="0.1"
-                      placeholder="Enter acres"
-                      value={acres}
-                      onChange={(e) =>
-                        setAcres(e.target.value)
-                      }
-                    />
-
-                    <span>Acres</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* WORKER CALCULATION */}
-              <div className="worker-calculation">
-                <div className="calculation-icon">
-                  👥
-                </div>
-
-                <div className="calculation-text">
-                  <span>
-                    Estimated workers required
-                  </span>
-
-                  <strong>
-                    {workersRequired || "--"}
-                  </strong>
-
-                  <small>
-                    {selectedCrop
-                      ? `${selectedCrop.workersPerAcre} workers per acre for ${selectedCrop.name}`
-                      : "Select crop and land area"}
-                  </small>
-                </div>
-
-                {workersRequired > 0 && (
-                  <div className="calculation-success">
-                    ✓ Calculated
-                  </div>
-                )}
-              </div>
-
-              <div className="form-section-title">
-                🧑‍🌾 Work Details
-              </div>
-
-              <div className="form-grid">
-                <div className="dashboard-field">
-                  <label>
-                    Work Type <span>*</span>
-                  </label>
-
-                  <select
-                    value={workType}
-                    onChange={(e) =>
-                      setWorkType(e.target.value)
-                    }
-                    disabled={!selectedCrop}
-                  >
-                    <option value="">
-                      Select work type
-                    </option>
-
-                    {selectedCrop?.workTypes.map(
-                      (type) => (
-                        <option
-                          key={type}
-                          value={type}
-                        >
-                          {type}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
-
-                <div className="dashboard-field">
-                  <label>
-                    Work Date <span>*</span>
-                  </label>
-
-                  <input
-                    type="date"
-                    value={workDate}
-                    min={
-                      new Date()
-                        .toISOString()
-                        .split("T")[0]
-                    }
-                    onChange={(e) =>
-                      setWorkDate(e.target.value)
-                    }
-                  />
-                </div>
-
-                <div className="dashboard-field full-width">
-                  <label>
-                    Work Location <span>*</span>
-                  </label>
-
-                  <input
-                    type="text"
-                    placeholder="Enter village / area"
-                    value={location}
-                    onChange={(e) =>
-                      setLocation(e.target.value)
-                    }
-                  />
-                </div>
-
-                <div className="dashboard-field">
-                  <label>Daily Wage</label>
-
-                  <div className="input-with-unit">
-                    <span className="currency">
-                      ₹
-                    </span>
-
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="e.g. 500"
-                      value={wage}
-                      onChange={(e) =>
-                        setWage(e.target.value)
-                      }
-                    />
-
-                    <span>per day</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-actions">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={handleClear}
-                >
-                  Clear
-                </button>
-
-                <button
-                  type="submit"
-                  className="primary-button"
-                >
-                  🔎 Find Workers
-                </button>
-              </div>
-            </form>
-          </section>
+          <JobForm
+            crop={crop}
+            acres={acres}
+            workType={workType}
+            workDate={workDate}
+            location={location}
+            wage={wage}
+            cropData={cropData}
+            selectedCrop={selectedCrop}
+            workersRequired={workersRequired}
+            onCropChange={handleCropChange}
+            onAcresChange={setAcres}
+            onWorkTypeChange={setWorkType}
+            onWorkDateChange={setWorkDate}
+            onLocationChange={setLocation}
+            onWageChange={setWage}
+            onSubmit={handleFindWorkers}
+            onClear={handleClear}
+            translate={translate}
+          />
         )}
 
         {/* WORKER RESULTS */}
@@ -1003,43 +1430,42 @@ function FarmerDashboard() {
               <div className="results-header">
                 <div>
                   <span className="results-eyebrow">
-                    SEARCH RESULTS
+                    {translate("SEARCH RESULTS")}
                   </span>
 
-                  <h2>Available Workers</h2>
+                  <h2>{translate("Available Workers")}</h2>
 
                   <p>
-                    {matchedWorkers.length} matching
-                    workers found for{" "}
-                    {selectedCrop?.name} {workType}.
+                    {matchedWorkers.length} {translate("matching workers found for")}{" "}
+                    {translate(selectedCrop?.name)} {translate(workType)}.
                   </p>
                 </div>
 
                 <div className="results-count">
-                  {matchedWorkers.length} Found
+                  {matchedWorkers.length} {translate("Found")}
                 </div>
               </div>
 
               <div className="results-summary">
                 <div>
-                  <span>Crop</span>
+                  <span>{translate("Crop")}</span>
                   <strong>
-                    {selectedCrop?.name}
+                    {translate(selectedCrop?.name)}
                   </strong>
                 </div>
 
                 <div>
-                  <span>Land Area</span>
-                  <strong>{acres} Acres</strong>
+                  <span>{translate("Land Area")}</span>
+                  <strong>{acres} {translate("Acres")}</strong>
                 </div>
 
                 <div>
-                  <span>Workers Required</span>
+                  <span>{translate("Workers Required")}</span>
                   <strong>{workersRequired}</strong>
                 </div>
 
                 <div>
-                  <span>Workers Found</span>
+                  <span>{translate("Workers Found")}</span>
                   <strong>
                     {matchedWorkers.length}
                   </strong>
@@ -1070,7 +1496,7 @@ function FarmerDashboard() {
                           </div>
 
                           <span className="worker-available">
-                            ● Available
+                            ● {translate("Available")}
                           </span>
                         </div>
 
@@ -1085,8 +1511,7 @@ function FarmerDashboard() {
                           ⭐ {worker.rating}
                           <span>
                             {" "}
-                            · {worker.experience} years
-                            experience
+                            · {worker.experience} {translate("years experience")}
                           </span>
                         </div>
 
@@ -1094,11 +1519,17 @@ function FarmerDashboard() {
                           {worker.skills.map(
                             (skill) => (
                               <span key={skill}>
-                                {skill}
+                                {translate(skill)}
                               </span>
                             )
                           )}
                         </div>
+
+                        {Number.isFinite(worker.skillMatchScore) && (
+                          <p className="worker-rating">
+                            {translate("Skill match")}: {worker.skillMatchScore}%
+                          </p>
+                        )}
 
                         <div className="worker-card-divider" />
 
@@ -1108,11 +1539,11 @@ function FarmerDashboard() {
                               ₹{worker.wage}
                             </strong>
 
-                            <span>/ day</span>
+                            <span>/ {translate("per day")}</span>
                           </div>
 
                           <span className="worker-age">
-                            {worker.age} years
+                            {worker.age} {translate("Age")}
                           </span>
                         </div>
 
@@ -1123,7 +1554,7 @@ function FarmerDashboard() {
                               setSelectedWorker(worker)
                             }
                           >
-                            View Profile
+                            {translate("View Profile")}
                           </button>
 
                           <button
@@ -1142,10 +1573,10 @@ function FarmerDashboard() {
                             }
                           >
                             {isHired
-                              ? "✓ Selected"
+                              ? translate("✓ Selected")
                               : isSendingHire
-                                ? "Sending SMS..."
-                                : "Hire Worker"}
+                                ? translate("Sending SMS...")
+                                : translate("Hire Worker")}
                           </button>
                         </div>
                       </article>
@@ -1157,12 +1588,11 @@ function FarmerDashboard() {
                   <div>🔎</div>
 
                   <h3>
-                    No matching workers found
+                    {translate("No matching workers found")}
                   </h3>
 
                   <p>
-                    Try changing the crop type or work
-                    type to see other available workers.
+                    {translate("Try changing the crop type or work type to see other available workers.")}
                   </p>
                 </div>
               )}
@@ -1205,41 +1635,41 @@ function FarmerDashboard() {
 
               <div className="modal-details">
                 <div>
-                  <span>Rating</span>
+                  <span>{translate("Rating")}</span>
                   <strong>
                     ⭐ {selectedWorker.rating}
                   </strong>
                 </div>
 
                 <div>
-                  <span>Experience</span>
+                  <span>{translate("Experience")}</span>
                   <strong>
-                    {selectedWorker.experience} years
+                    {selectedWorker.experience} {translate("years experience")}
                   </strong>
                 </div>
 
                 <div>
-                  <span>Age</span>
+                  <span>{translate("Age")}</span>
                   <strong>
                     {selectedWorker.age}
                   </strong>
                 </div>
 
                 <div>
-                  <span>Daily Wage</span>
+                  <span>{translate("Daily Wage")}</span>
                   <strong>
                     ₹{selectedWorker.wage}
                   </strong>
                 </div>
               </div>
 
-              <h4>Skills</h4>
+              <h4>{translate("Skills")}</h4>
 
               <div className="worker-skills">
                 {selectedWorker.skills.map(
                   (skill) => (
                     <span key={skill}>
-                      {skill}
+                      {translate(skill)}
                     </span>
                   )
                 )}
@@ -1259,7 +1689,7 @@ function FarmerDashboard() {
                   }
                 }}
               >
-                Hire This Worker
+                {translate("Hire This Worker")}
               </button>
             </div>
           </div>

@@ -71,27 +71,29 @@ class MultiLabelSkillsEncoder(BaseEstimator, TransformerMixin):
 # LOAD TRAINED MODELS
 # ============================================================
 
-wage_model = joblib.load(
-    "models/market_wage_model.pkl"
-)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+wage_model = None
+jobs_model = None
+matching_model = None
 
-jobs_model = joblib.load(
-    "models/labour_demand_model.pkl"
-)
 
-matching_model = joblib.load(
-    "models/gradient_boosting_classifier.pkl"
-)
-
-print("✓ Market Wage model loaded")
-print("✓ Labour Demand model loaded")
-print("✓ Worker Matching model loaded")
+def load_model(model_name):
+    model_paths = {
+        "wage": ("market_wage_model.pkl", "wage_model"),
+        "jobs": ("labour_demand_model.pkl", "jobs_model"),
+        "matching": ("gradient_boosting_classifier.pkl", "matching_model"),
+    }
+    filename, model_key = model_paths[model_name]
+    model = globals()[model_key]
+    if model is None:
+        model = joblib.load(os.path.join(BASE_DIR, "models", filename))
+        globals()[model_key] = model
+        print(f"{model_key} loaded")
+    return model
 
 # ============================================================
 # LOAD PLANT DISEASE CNN MODEL
 # ============================================================
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 cnn_model_path = os.path.join(
     BASE_DIR,
@@ -124,9 +126,9 @@ treatment_df = pd.read_csv(
     treatment_csv_path
 )
 
-print("✓ Plant Disease CNN model loaded")
-print("✓ Plant disease class names loaded")
-print("✓ Disease treatment data loaded")
+print("Plant Disease CNN model loaded")
+print("Plant disease class names loaded")
+print("Disease treatment data loaded")
 
 # ============================================================
 # CNN LABEL → TREATMENT CSV MAPPING
@@ -161,7 +163,7 @@ cnn_to_csv = {
     "Wheat_Yellow_Rust": ("Wheat", "yellow")
 }
 
-print("✓ CNN to treatment mapping loaded")
+print("CNN to treatment mapping loaded")
 print("Total CNN mappings:", len(cnn_to_csv))
 
 # ============================================================
@@ -203,7 +205,7 @@ def predict_wage():
         ]
     })
 
-    predicted_wage = wage_model.predict(
+    predicted_wage = load_model("wage").predict(
         sample_input
     )[0]
 
@@ -254,7 +256,7 @@ def predict_jobs():
         ]
     })
 
-    predicted_jobs = jobs_model.predict(
+    predicted_jobs = load_model("jobs").predict(
         sample_input
     )[0]
 
@@ -304,11 +306,12 @@ def predict_match():
         ]
     })
 
-    prediction = matching_model.predict(
+    model = load_model("matching")
+    prediction = model.predict(
         sample_input
     )[0]
 
-    probability = matching_model.predict_proba(
+    probability = model.predict_proba(
         sample_input
     )[0]
 
@@ -515,4 +518,3 @@ if __name__ == '__main__':
         port=5000,
         debug=True
     )
-

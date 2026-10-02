@@ -8,6 +8,9 @@ import Login from "./views/Login";
 import FarmerDashboard from "./views/FarmerDashboard";
 import WorkerDashboard from "./views/WorkerDashboard";
 import Workerprofile from "./views/Workerprofile";
+import PestDetection from "./views/PestDetection";
+import JobDetails from "./views/jobdetails";
+import PredictionHistory from "./views/PredictionHistory";
 import "./App.css";
 
 function App() {
@@ -45,6 +48,18 @@ function App() {
           <Route
             path="/worker/profile"
             element={<Workerprofile />}
+          />
+          <Route
+            path="/pest-detection"
+            element={<PestDetection />}
+          />
+          <Route
+            path="/jobs/:jobId"
+            element={<JobDetails />}
+          />
+          <Route
+            path="/pest-detection/history"
+            element={<PredictionHistory />}
           />
         </Routes>
       </BrowserRouter>

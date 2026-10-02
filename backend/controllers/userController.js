@@ -36,6 +36,23 @@ const parseSkills = (skills) => {
   return [];
 };
 
+const calculateCosineSkillMatch = (requiredSkills, workerSkills) => {
+  const required = [...new Set(
+    parseSkills(requiredSkills).map((skill) => skill.toLowerCase())
+  )];
+  const worker = [...new Set(
+    parseSkills(workerSkills).map((skill) => skill.toLowerCase())
+  )];
+
+  if (required.length === 0 || worker.length === 0) return 0;
+
+  const workerSkillSet = new Set(worker);
+  const sharedSkills = required.filter((skill) => workerSkillSet.has(skill)).length;
+  return Number(
+    ((sharedSkills / Math.sqrt(required.length * worker.length)) * 100).toFixed(2)
+  );
+};
+
 
 // ==========================================
 // REGISTER USER / SAVE WORKER PROFILE
@@ -162,33 +179,77 @@ exports.registerUser = async (req, res) => {
   }
 };
 
+exports.getWorkerProfile = async (req, res) => {
+  const phone = String(req.params.mobile || '').replace(/\D/g, '').slice(-10);
+  if (!/^[6-9]\d{9}$/.test(phone)) {
+    return res.status(400).json({ success: false, message: 'A valid worker phone is required.' });
+  }
+
+  try {
+    const [workers] = await pool.execute(
+      `SELECT id,name,mobile,village,skills,experience_years,expected_daily_wage,latitude,longitude
+       FROM users WHERE mobile=? AND role='worker' LIMIT 1`,
+      [phone]
+    );
+    return res.json({ success: true, profile: workers[0] || null });
+  } catch (error) {
+    console.error('Get worker profile error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Could not load worker profile.'
+    });
+  }
+};
+
 
 // ==========================================
 // SEARCH NEARBY WORKERS
 // ==========================================
 
 exports.searchWorkers = async (req, res) => {
-  const { latitude, longitude, skill } = req.query;
+  const { latitude, longitude, skill, location, max_daily_wage } = req.query;
+  const hasLatitude = latitude !== undefined && latitude !== '';
+  const hasLongitude = longitude !== undefined && longitude !== '';
+  const hasCoordinates = hasLatitude && hasLongitude;
+  const workerLocation = String(location || '').trim();
+  const maxDailyWage = max_daily_wage === undefined || max_daily_wage === ''
+    ? null
+    : Number(max_daily_wage);
 
-  if (latitude === undefined || longitude === undefined) {
+  if (hasLatitude !== hasLongitude) {
     return res.status(400).json({
       success: false,
-      message: "Latitude and longitude are required."
+      message: 'Latitude and longitude must be provided together.'
     });
   }
 
-  const lat = Number(latitude);
-  const lng = Number(longitude);
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+  if (!hasCoordinates && !workerLocation) {
     return res.status(400).json({
       success: false,
-      message: "Invalid location coordinates."
+      message: 'A village/area or valid location coordinates are required.'
+    });
+  }
+
+  const lat = hasCoordinates ? Number(latitude) : null;
+  const lng = hasCoordinates ? Number(longitude) : null;
+  if (hasCoordinates && (!Number.isFinite(lat) || !Number.isFinite(lng))) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid location coordinates.'
+    });
+  }
+
+  if (maxDailyWage !== null &&
+      (!Number.isFinite(maxDailyWage) || maxDailyWage <= 0)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Maximum daily wage must be a positive number.'
     });
   }
 
   try {
-    let query = `
+    let query = hasCoordinates
+      ? `
       SELECT
         id,
         name,
@@ -215,25 +276,59 @@ exports.searchWorkers = async (req, res) => {
         AND is_available = TRUE
         AND latitude IS NOT NULL
         AND longitude IS NOT NULL
+    `
+      : `
+      SELECT
+        id,
+        name,
+        mobile,
+        village,
+        skills,
+        experience_years,
+        expected_daily_wage,
+        latitude,
+        longitude
+      FROM users
+      WHERE role = 'worker'
+        AND is_available = TRUE
     `;
 
-    const params = [lat, lng, lat];
+    const params = hasCoordinates ? [lat, lng, lat] : [];
 
-    if (skill && skill.trim()) {
-      query += `
-        AND LOWER(CAST(skills AS CHAR)) LIKE ?
-      `;
-
-      params.push(`%${skill.trim().toLowerCase()}%`);
+    if (workerLocation) {
+      query += ' AND LOWER(village) LIKE LOWER(?)';
+      params.push(`%${workerLocation}%`);
     }
 
-    query += " ORDER BY distance_km ASC";
+    if (maxDailyWage !== null) {
+      query += ' AND expected_daily_wage IS NOT NULL AND expected_daily_wage <= ?';
+      params.push(maxDailyWage);
+    }
+
+    query += hasCoordinates
+      ? ' ORDER BY distance_km ASC'
+      : ' ORDER BY expected_daily_wage ASC, name ASC';
 
     const [workers] = await pool.execute(query, params);
+    const requestedSkills = parseSkills(skill);
+    const rankedWorkers = workers
+      .map((worker) => ({
+        ...worker,
+        skill_match_score: calculateCosineSkillMatch(
+          requestedSkills,
+          worker.skills
+        )
+      }))
+      .filter((worker) =>
+        requestedSkills.length === 0 || worker.skill_match_score > 0
+      )
+      .sort((first, second) =>
+        second.skill_match_score - first.skill_match_score
+      );
 
     return res.json({
       success: true,
-      workers
+      workers: rankedWorkers
     });
 
   } catch (error) {
